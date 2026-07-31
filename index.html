@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="topbar" id="top">
+    <div class="topbar-left">
+      <span class="dot active"></span>
+      <span class="openbutton" id="welcomeopen">IsaacOS</span>
+    </div>
+    <div class="topbar-right">
+      <span class="time" id="timeElement">...</span>
+    </div>
+  </div>
+
+  <div id="desktopApps">
+    <div class="appicon" id="notesicon">
+      <div class="appicon-img"><img src="Code_Generated_Image.png" alt="notes"></div>
+      <p class="appicon-label">Notes</p>
+    </div>
+    <div class="appicon" id="contactsicon">
+      <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/2/24/Collectible_Poke_Go_icon.png/revision/latest?cb=20210822021043" alt="contatti"></div>
+      <p class="appicon-label">Contatti</p>
+    </div>
+  </div>  
+
+  <div class="window" id="welcome">
+    <div class="windowheader" id="welcomeheader">
+      <div class="closebutton" id="welcomeclose"></div>
+    </div>
+    <div class="window-body">
+      <img class="avatar" src="https://images.squarespace-cdn.com/content/v1/61c0ba022ed26d6e4203a094/41e6bec2-60cb-47f6-8199-0c9e52f63f52/TBOI-ICO-Isaac.png?format=300w" alt="avatar">
+      <h1>Benvenuto su IsaacOS</h1>
+      <p>
+        Questo è il tuo cazzo di desktop. Personalizzalo.
+      </p>
+      <div class="links">
+        <a href="#">Esplorandola</a>
+        <a href="#">Progettandola</a>
+        <a href="#">Contattandola</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="window" id="notes" style="display: none;">
+    <div class="windowheader" id="notesheader">
+      <div class="closebutton" id="notesclose"></div>
+    </div>
+    <div class="notes-app">
+      <div class="sidebar" id="sidebar"></div>
+      <div class="note-content" id="noteContent" contenteditable="true"></div>
+    </div>
+  </div>
+
+  <div class="window" id="contacts" style="display: none;">
+    <div class="windowheader" id="contactsheader">
+      <div class="closebutton" id="contactsclose"></div>
+    </div>
+    <div class="contacts-app">
+      <h2>Contatti</h2>
+      <p class="contacts-sub">Trovami qui.</p>
+      <div class="contact-list">
+        <a class="contact-card" href="https://github.com/pickledroided" target="_blank">
+          <span class="contact-emoji"><img src="icons8-github-32.png" alt="github"></span>
+          <span class="contact-info">
+            <span class="contact-name">GitHub</span>
+            <span class="contact-handle">@pickledroided</span>
+          </span>
+          <span class="contact-arrow">→</span>
+        </a>
+        <a class="contact-card" href="https://instagram.com/sergiogiuntaa" target="_blank">
+          <span class="contact-emoji"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/f/f6/Collectible_Abaddon_icon.png/revision/latest?cb=20210821081514" alt="instagram"></span>
+          <span class="contact-info">
+            <span class="contact-name">Instagram</span>
+            <span class="contact-handle">@sergiogiuntaa</span>
+          </span>
+          <span class="contact-arrow">→</span>
+        </a>
+        <a class="contact-card" href="https://discord.com/" target="_blank">
+          <span class="contact-emoji"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/d/d7/Collectible_Gimpy_icon.png/revision/latest?cb=20210821054815" alt="discord"></span>
+          <span class="contact-info">
+            <span class="contact-name">Discord</span>
+            <span class="contact-handle">picklethebest</span>
+          </span>
+          <span class="contact-arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
