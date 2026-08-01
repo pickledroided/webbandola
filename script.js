@@ -6,6 +6,30 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime();
 
+// --- Scale OS to fit the screen (enables nested OS-in-OS recursion) ---
+
+var osContainer = document.getElementById("os");
+
+function fitOsToScreen() {
+  if (!osContainer) return;
+
+  var scale = Math.min(
+    1,
+    window.innerWidth / 1280,
+    window.innerHeight / 720
+  );
+
+  var offsetX = (window.innerWidth - window.innerWidth * scale) / 2;
+  var offsetY = (window.innerHeight - window.innerHeight * scale) / 2;
+
+  osContainer.style.transform = "scale(" + scale + ")";
+  osContainer.style.left = offsetX + "px";
+  osContainer.style.top = offsetY + "px";
+}
+
+window.addEventListener("resize", fitOsToScreen);
+fitOsToScreen();
+
 // --- Window management ---
 
 var biggestIndex = 1;
@@ -74,11 +98,18 @@ function dragElement(element) {
     document.onmousemove = elementDrag;
   }
 
+  function currentScale() {
+    if (!osContainer) return 1;
+    var match = osContainer.style.transform.match(/scale\(([\d.]+)\)/);
+    return match ? parseFloat(match[1]) : 1;
+  }
+
   function elementDrag(e) {
     e = e || window.event;
     e.preventDefault();
-    currentX = initialX - e.clientX;
-    currentY = initialY - e.clientY;
+    var s = currentScale();
+    currentX = (initialX - e.clientX) / s;
+    currentY = (initialY - e.clientY) / s;
     initialX = e.clientX;
     initialY = e.clientY;
     element.style.top = (element.offsetTop - currentY) + "px";

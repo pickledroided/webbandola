@@ -4,8 +4,15 @@
   box-sizing: border-box;
 }
 
+#os {
+  width: 100vw;
+  height: 100vh;
+  transform-origin: top left;
+  position: relative;
+}
+
 :root {
-  --blood-dark: #4f0b0b;
+  --blood-dark: #230505;
   --blood: #690e0e;
   --blood-hover: #7a1010;
 }
@@ -173,7 +180,7 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #b08a3e;
+  background: #815f1c;
   border: 1px solid #000;
   cursor: pointer;
   flex-shrink: 0;
@@ -553,8 +560,18 @@ body {
   border-radius: 6px;
   background: #241a14;
   border: 1px solid #000;
-  box-shadow: 0 0 0 1px var(--blood);
+  box-shadow: 0 0 0 1px rgba(160, 24, 24, 0.3);
   transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.browser-links a img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .browser-links a:hover {
