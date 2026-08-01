@@ -197,6 +197,19 @@ body {
 
 .openbutton {
   cursor: pointer;
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  color: #e8d5a8;
+}
+
+.window-title {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  color: #e8d5a8;
 }
 
 #desktopApps {

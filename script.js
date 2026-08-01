@@ -19,12 +19,9 @@ function fitOsToScreen() {
     window.innerHeight / 720
   );
 
-  var offsetX = (window.innerWidth - window.innerWidth * scale) / 2;
-  var offsetY = (window.innerHeight - window.innerHeight * scale) / 2;
-
   osContainer.style.transform = "scale(" + scale + ")";
-  osContainer.style.left = offsetX + "px";
-  osContainer.style.top = offsetY + "px";
+  osContainer.style.left = "0px";
+  osContainer.style.top = "0px";
 }
 
 window.addEventListener("resize", fitOsToScreen);
