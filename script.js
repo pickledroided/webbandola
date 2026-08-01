@@ -132,6 +132,141 @@ function initializeApp(id) {
 
 var notesScreen = initializeApp("notes");
 var contactsScreen = initializeApp("contacts");
+var browserScreen = initializeApp("browser");
+
+document.querySelector("#browsermin").addEventListener("click", function () {
+  closeWindow(browserScreen);
+});
+
+// --- Browser app ---
+
+var browserFrame = document.querySelector("#browserFrame");
+var browserUrl = document.querySelector("#browserUrl");
+var browserSearch = document.querySelector("#browserSearch");
+var browserHomePage = document.querySelector("#browserHomePage");
+var browserError = document.querySelector("#browserError");
+var browserHistory = [];
+var browserHistoryIndex = -1;
+var browserCurrentUrl = "";
+
+function browserShowHome() {
+  browserFrame.style.display = "none";
+  browserError.style.display = "none";
+  browserHomePage.style.display = "flex";
+  browserUrl.value = "";
+}
+
+function browserShowFrame() {
+  browserHomePage.style.display = "none";
+  browserError.style.display = "none";
+  browserFrame.style.display = "block";
+}
+
+function browserSearchUrl(query) {
+  return "https://search.marginalia.nu/search?query=" + encodeURIComponent(query);
+}
+
+function browserResolve(input) {
+  input = input.trim();
+  if (!input) return null;
+
+  var looksLikeUrl = input.startsWith("localhost") ||
+    input.includes(" ") === false && input.includes(".") ||
+    input.startsWith("http://") || input.startsWith("https://");
+
+  if (!looksLikeUrl) {
+    return browserSearchUrl(input);
+  }
+
+  if (!input.startsWith("http://") && !input.startsWith("https://")) {
+    input = "https://" + input;
+  }
+
+  return input;
+}
+
+function browserGo(url) {
+  if (!url) return;
+
+  browserFrame.src = url;
+  browserCurrentUrl = url;
+  browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
+  browserHistory.push(url);
+  browserHistoryIndex++;
+  browserUrl.value = url;
+  browserShowFrame();
+}
+
+function browserOpenTab() {
+  if (browserCurrentUrl) {
+    window.open(browserCurrentUrl, "_blank");
+  }
+}
+
+browserFrame.addEventListener("load", function () {
+  browserError.style.display = "none";
+  try {
+    var current = browserFrame.contentWindow.location.href;
+    if (current) {
+      browserUrl.value = current;
+    }
+  } catch (e) {}
+});
+
+browserFrame.addEventListener("error", function () {
+  browserError.style.display = "flex";
+});
+
+document.querySelector("#browserGo").addEventListener("click", function () {
+  browserGo(browserResolve(browserUrl.value));
+});
+
+browserUrl.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    browserGo(browserResolve(browserUrl.value));
+  }
+});
+
+browserSearch.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    browserGo(browserSearchUrl(browserSearch.value));
+  }
+});
+
+document.querySelector("#browserBack").addEventListener("click", function () {
+  if (browserHistoryIndex > 0) {
+    browserHistoryIndex--;
+    browserFrame.src = browserHistory[browserHistoryIndex];
+    browserUrl.value = browserHistory[browserHistoryIndex];
+    browserShowFrame();
+  }
+});
+
+document.querySelector("#browserForward").addEventListener("click", function () {
+  if (browserHistoryIndex < browserHistory.length - 1) {
+    browserHistoryIndex++;
+    browserFrame.src = browserHistory[browserHistoryIndex];
+    browserUrl.value = browserHistory[browserHistoryIndex];
+    browserShowFrame();
+  }
+});
+
+document.querySelector("#browserHome").addEventListener("click", browserShowHome);
+
+document.querySelector("#browserReload").addEventListener("click", function () {
+  if (browserFrame.src) {
+    browserFrame.src = browserFrame.src;
+  }
+});
+
+document.querySelector("#browserOpenTab").addEventListener("click", browserOpenTab);
+
+document.querySelectorAll(".browser-links a").forEach(function (link) {
+  link.addEventListener("click", function (e) {
+    e.preventDefault();
+    browserGo(link.getAttribute("data-url"));
+  });
+});
 
 // --- Notes app content ---
 

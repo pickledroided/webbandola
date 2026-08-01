@@ -26,6 +26,10 @@
       <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/2/24/Collectible_Poke_Go_icon.png/revision/latest?cb=20210822021043" alt="contatti"></div>
       <p class="appicon-label">Contatti</p>
     </div>
+    <div class="appicon" id="browsericon">
+      <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/d/d7/Collectible_Gimpy_icon.png/revision/latest?cb=20210821054815" alt="browser"></div>
+      <p class="appicon-label">Browser</p>
+    </div>
   </div>  
 
   <div class="window" id="welcome">
@@ -88,6 +92,39 @@
           </span>
           <span class="contact-arrow">→</span>
         </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="window" id="browser" style="display: none;">
+    <div class="windowheader" id="browserheader">
+      <div class="minbutton" id="browsermin" title="Minimizza"></div>
+      <div class="closebutton" id="browserclose"></div>
+    </div>
+    <div class="browser-app">
+      <div class="browser-toolbar">
+        <button class="browser-btn" id="browserBack" title="Indietro">←</button>
+        <button class="browser-btn" id="browserForward" title="Avanti">→</button>
+        <button class="browser-btn" id="browserHome" title="Home">⌂</button>
+        <button class="browser-btn" id="browserReload" title="Ricarica">⟳</button>
+        <input class="browser-url" id="browserUrl" type="text" placeholder="Cerca o inserisci URL...">
+        <button class="browser-btn browser-go" id="browserGo">Go</button>
+      </div>
+      <div class="browser-home" id="browserHomePage">
+        <h2>IsaacWeb</h2>
+        <p class="browser-home-sub">Il web, dal tuo OS.</p>
+        <div class="browser-search">
+          <input class="browser-url" id="browserSearch" type="text" placeholder="Cerca sul web...">
+        </div>
+        <div class="browser-links">
+          <a href="#" data-url="https://search.marginalia.nu/">🔍 Marginalia</a>
+          <a href="#" data-url="https://www.wikipedia.org/">📚 Wikipedia</a>
+        </div>
+      </div>
+      <iframe class="browser-frame" id="browserFrame" title="browser"></iframe>
+      <div class="browser-error" id="browserError" style="display: none;">
+        <p>Questo sito ha bloccato l'apertura dentro il browser.</p>
+        <button class="browser-btn browser-go" id="browserOpenTab">Apri in nuova scheda</button>
       </div>
     </div>
   </div>

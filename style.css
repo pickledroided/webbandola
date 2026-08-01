@@ -153,6 +153,25 @@ body {
   flex-shrink: 0;
 }
 
+.minbutton {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e8b33c;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.minbutton:hover {
+  background: #f2c14e;
+}
+
+.minbutton:active {
+  background: #c99a2f;
+}
+
 .openbutton {
   cursor: pointer;
 }
@@ -381,4 +400,163 @@ body {
 .contact-arrow {
   font-size: 16px;
   color: rgba(255, 255, 255, 0.4);
+}
+
+#browser {
+  width: 720px;
+  height: 520px;
+}
+
+.browser-app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.browser-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.browser-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.browser-btn.browser-go {
+  width: auto;
+  padding: 0 12px;
+  background: rgba(59, 130, 246, 0.7);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.browser-btn.browser-go:hover {
+  background: rgba(59, 130, 246, 0.9);
+}
+
+.browser-url {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+}
+
+.browser-url:focus {
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.browser-url::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.browser-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex: 1;
+  padding: 32px;
+  min-height: 0;
+  text-align: center;
+}
+
+.browser-home h2 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.browser-home-sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: -8px;
+}
+
+.browser-search {
+  width: 100%;
+  max-width: 460px;
+}
+
+.browser-search .browser-url {
+  width: 100%;
+  height: 40px;
+  font-size: 15px;
+  border-radius: 20px;
+  padding: 0 20px;
+}
+
+.browser-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.browser-links a {
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.15s;
+}
+
+.browser-links a:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.browser-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  display: none;
+  background: #fff;
+}
+
+.browser-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  padding: 24px;
+  color: #fff;
+  text-align: center;
+}
+
+.browser-error p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
 }
