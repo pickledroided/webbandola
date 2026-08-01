@@ -42,6 +42,13 @@ function initializeWindow(id) {
     closeWindow(element);
   });
 
+  var minButton = document.querySelector("#" + id + "min");
+  if (minButton) {
+    minButton.addEventListener("click", function () {
+      closeWindow(element);
+    });
+  }
+
   return element;
 }
 
@@ -134,15 +141,10 @@ var notesScreen = initializeApp("notes");
 var contactsScreen = initializeApp("contacts");
 var browserScreen = initializeApp("browser");
 
-document.querySelector("#browsermin").addEventListener("click", function () {
-  closeWindow(browserScreen);
-});
-
 // --- Browser app ---
 
 var browserFrame = document.querySelector("#browserFrame");
 var browserUrl = document.querySelector("#browserUrl");
-var browserSearch = document.querySelector("#browserSearch");
 var browserHomePage = document.querySelector("#browserHomePage");
 var browserError = document.querySelector("#browserError");
 var browserHistory = [];
@@ -162,21 +164,9 @@ function browserShowFrame() {
   browserFrame.style.display = "block";
 }
 
-function browserSearchUrl(query) {
-  return "https://search.marginalia.nu/search?query=" + encodeURIComponent(query);
-}
-
 function browserResolve(input) {
   input = input.trim();
   if (!input) return null;
-
-  var looksLikeUrl = input.startsWith("localhost") ||
-    input.includes(" ") === false && input.includes(".") ||
-    input.startsWith("http://") || input.startsWith("https://");
-
-  if (!looksLikeUrl) {
-    return browserSearchUrl(input);
-  }
 
   if (!input.startsWith("http://") && !input.startsWith("https://")) {
     input = "https://" + input;
@@ -224,12 +214,6 @@ document.querySelector("#browserGo").addEventListener("click", function () {
 browserUrl.addEventListener("keydown", function (e) {
   if (e.key === "Enter") {
     browserGo(browserResolve(browserUrl.value));
-  }
-});
-
-browserSearch.addEventListener("keydown", function (e) {
-  if (e.key === "Enter") {
-    browserGo(browserSearchUrl(browserSearch.value));
   }
 });
 

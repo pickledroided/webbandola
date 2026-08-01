@@ -3,7 +3,7 @@
 <head>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
 
   <div id="desktopApps">
     <div class="appicon" id="notesicon">
-      <div class="appicon-img"><img src="Code_Generated_Image.png" alt="notes"></div>
+      <div class="appicon-img"><img src="img/Code_Generated_Image.png" alt="notes"></div>
       <p class="appicon-label">Notes</p>
     </div>
     <div class="appicon" id="contactsicon">
@@ -34,24 +34,21 @@
 
   <div class="window" id="welcome">
     <div class="windowheader" id="welcomeheader">
+      <div class="minbutton" id="welcomemin" title="Minimizza"></div>
       <div class="closebutton" id="welcomeclose"></div>
     </div>
     <div class="window-body">
       <img class="avatar" src="https://images.squarespace-cdn.com/content/v1/61c0ba022ed26d6e4203a094/41e6bec2-60cb-47f6-8199-0c9e52f63f52/TBOI-ICO-Isaac.png?format=300w" alt="avatar">
       <h1>Benvenuto su IsaacOS</h1>
       <p>
-        Questo è il tuo cazzo di desktop. Personalizzalo.
+        Eeugh. 
       </p>
-      <div class="links">
-        <a href="#">Esplorandola</a>
-        <a href="#">Progettandola</a>
-        <a href="#">Contattandola</a>
-      </div>
     </div>
   </div>
 
   <div class="window" id="notes" style="display: none;">
     <div class="windowheader" id="notesheader">
+      <div class="minbutton" id="notesmin" title="Minimizza"></div>
       <div class="closebutton" id="notesclose"></div>
     </div>
     <div class="notes-app">
@@ -62,6 +59,7 @@
 
   <div class="window" id="contacts" style="display: none;">
     <div class="windowheader" id="contactsheader">
+      <div class="minbutton" id="contactsmin" title="Minimizza"></div>
       <div class="closebutton" id="contactsclose"></div>
     </div>
     <div class="contacts-app">
@@ -69,7 +67,7 @@
       <p class="contacts-sub">Trovami qui.</p>
       <div class="contact-list">
         <a class="contact-card" href="https://github.com/pickledroided" target="_blank">
-          <span class="contact-emoji"><img src="icons8-github-32.png" alt="github"></span>
+          <span class="contact-emoji"><img src="img/icons8-github-32.png" alt="github"></span>
           <span class="contact-info">
             <span class="contact-name">GitHub</span>
             <span class="contact-handle">@pickledroided</span>
@@ -107,18 +105,16 @@
         <button class="browser-btn" id="browserForward" title="Avanti">→</button>
         <button class="browser-btn" id="browserHome" title="Home">⌂</button>
         <button class="browser-btn" id="browserReload" title="Ricarica">⟳</button>
-        <input class="browser-url" id="browserUrl" type="text" placeholder="Cerca o inserisci URL...">
+        <input class="browser-url" id="browserUrl" type="text" placeholder="Inserisci un URL...">
         <button class="browser-btn browser-go" id="browserGo">Go</button>
       </div>
       <div class="browser-home" id="browserHomePage">
         <h2>IsaacWeb</h2>
         <p class="browser-home-sub">Il web, dal tuo OS.</p>
-        <div class="browser-search">
-          <input class="browser-url" id="browserSearch" type="text" placeholder="Cerca sul web...">
-        </div>
         <div class="browser-links">
-          <a href="#" data-url="https://search.marginalia.nu/">🔍 Marginalia</a>
           <a href="#" data-url="https://www.wikipedia.org/">📚 Wikipedia</a>
+          <a href="#" data-url="https://en.wiktionary.org/wiki/Wiktionary:Main_Page">📖 Wiktionary</a>
+          <a href="#" data-url="https://archive.org/">🗃️ Archive.org</a>
         </div>
       </div>
       <iframe class="browser-frame" id="browserFrame" title="browser"></iframe>
