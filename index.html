@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="dock">
+  </div>
   <div id="os">
   <div class="topbar" id="top">
     <div class="topbar-left">
@@ -30,6 +32,10 @@
     <div class="appicon" id="browsericon">
       <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/d/d7/Collectible_Gimpy_icon.png/revision/latest?cb=20210821054815" alt="browser"></div>
       <p class="appicon-label">Browser</p>
+    </div>
+    <div class="appicon" id="calculatoricon">
+      <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/f/fc/Collectible_Spindown_Dice_icon.png/revision/latest?cb=20210822150518" alt="calculator"></div>
+      <p class="appicon-label">Calculator</p>
     </div>
   </div>  
 
@@ -55,7 +61,9 @@
       <div class="closebutton" id="notesclose"></div>
     </div>
     <div class="notes-app">
-      <div class="sidebar" id="sidebar"></div>
+      <div class="sidebar" id="sidebar">
+        <button class="new-note-btn" id="newNoteBtn" title="Nuova nota">+</button>
+      </div>
       <div class="note-content" id="noteContent" contenteditable="true"></div>
     </div>
   </div>
@@ -130,6 +138,38 @@
       </div>
     </div>
   </div>
+
+  <div class="window" id="calculator" style="display: none;">
+    <div class="windowheader" id="calculatorheader">
+      <span class="window-title">Calculator</span>
+      <div class="minbutton" id="calculatormin" title="Minimizza"></div>
+      <div class="closebutton" id="calculatorclose"></div>
+    </div>
+    <div class="calc-app">
+      <input class="calc-display" id="calcDisplay" type="text" value="0" readonly>
+      <div class="calc-grid">
+        <button class="calc-btn" data-action="clear">C</button>
+        <button class="calc-btn" data-action="backspace">⌫</button>
+        <button class="calc-btn" data-action="percent">%</button>
+        <button class="calc-btn calc-op" data-action="op" data-value="/">÷</button>
+        <button class="calc-btn" data-action="digit" data-value="7">7</button>
+        <button class="calc-btn" data-action="digit" data-value="8">8</button>
+        <button class="calc-btn" data-action="digit" data-value="9">9</button>
+        <button class="calc-btn calc-op" data-action="op" data-value="*">×</button>
+        <button class="calc-btn" data-action="digit" data-value="4">4</button>
+        <button class="calc-btn" data-action="digit" data-value="5">5</button>
+        <button class="calc-btn" data-action="digit" data-value="6">6</button>
+        <button class="calc-btn calc-op" data-action="op" data-value="-">−</button>
+        <button class="calc-btn" data-action="digit" data-value="1">1</button>
+        <button class="calc-btn" data-action="digit" data-value="2">2</button>
+        <button class="calc-btn" data-action="digit" data-value="3">3</button>
+        <button class="calc-btn calc-op" data-action="op" data-value="+">+</button>
+        <button class="calc-btn" data-action="sign">±</button>
+        <button class="calc-btn" data-action="digit" data-value="0">0</button>
+        <button class="calc-btn" data-action="decimal">.</button>
+        <button class="calc-btn calc-eq" data-action="equals">=</button>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>
