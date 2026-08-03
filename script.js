@@ -24,6 +24,12 @@ function fitOsToScreen() {
   osContainer.style.top = "0px";
 }
 
+function getOsScale() {
+  if (!osContainer) return 1;
+  var match = osContainer.style.transform.match(/scale\(([\d.]+)\)/);
+  return match ? parseFloat(match[1]) : 1;
+}
+
 window.addEventListener("resize", fitOsToScreen);
 fitOsToScreen();
 
@@ -42,6 +48,13 @@ function handleWindowTap(element) {
 function initializeWindow(id) {
   var element = document.getElementById(id);
 
+  var inner = document.createElement("div");
+  inner.className = "window-inner";
+  while (element.firstChild) {
+    inner.appendChild(element.firstChild);
+  }
+  element.appendChild(inner);
+
   dragElement(element);
   element.addEventListener("mousedown", function () {
     handleWindowTap(element);
@@ -59,39 +72,126 @@ function initializeWindow(id) {
     });
   }
 
+  setupResize(element);
+
   return element;
+}
+
+function setupResize(element) {
+  var handle = document.createElement("div");
+  handle.className = "resize-handle";
+  element.appendChild(handle);
+
+  handle.addEventListener("mousedown", function (e) {
+    e = e || window.event;
+    e.preventDefault();
+    e.stopPropagation();
+
+    var s = getOsScale();
+    var rect = element.getBoundingClientRect();
+    var vx = rect.left / s;
+    var vy = rect.top / s;
+    var startW = element.offsetWidth;
+    var startH = element.offsetHeight;
+    var startX = e.clientX;
+    var startY = e.clientY;
+
+    function doResize(ev) {
+      ev = ev || window.event;
+      ev.preventDefault();
+      var newW = Math.max(240, startW + (ev.clientX - startX) / s);
+      var newH = Math.max(140, startH + (ev.clientY - startY) / s);
+      element.style.width = newW + "px";
+      element.style.height = newH + "px";
+      element.style.left = (vx + newW / 2) + "px";
+      element.style.top = (vy + newH / 2) + "px";
+    }
+
+    function stopResize() {
+      document.onmousemove = null;
+      document.onmouseup = null;
+    }
+
+    document.onmousemove = doResize;
+    document.onmouseup = stopResize;
+  });
 }
 
 var openApps = {};
 
 function openWindow(element) {
+  element.classList.remove("closing");
+  element.classList.remove("genie-out");
   element.style.display = "flex";
   biggestIndex++;
   element.style.zIndex = biggestIndex;
   topBar.style.zIndex = biggestIndex + 1;
   openApps[element.id] = "open";
   renderDock();
+  element.classList.remove("opening");
+  void element.offsetWidth;
+  element.classList.add("opening");
 }
 
 function closeWindow(element) {
-  element.style.display = "none";
+  element.classList.remove("opening");
   openApps[element.id] = "closed";
   renderDock();
+  element.classList.add("closing");
+  element.addEventListener("animationend", function () {
+    element.classList.remove("closing");
+    element.style.display = "none";
+  }, { once: true });
 }
 
 function minWindow(element) {
-  element.style.display = "none";
-  openApps[element.id] = "minimized";
-  renderDock();
+  var dock = document.querySelector("#dock");
+  var dockRect = dock.getBoundingClientRect();
+  var elRect = element.getBoundingClientRect();
+  var scale = getOsScale();
+  var dy = ((dockRect.top + dockRect.height / 2) - (elRect.top + elRect.height / 2)) / scale;
+
+  element.style.setProperty("--genie-dy", dy + "px");
+  element.classList.add("genie-out");
+  element.addEventListener("animationend", function () {
+    element.classList.remove("genie-out");
+    element.style.display = "none";
+    openApps[element.id] = "minimized";
+    renderDock();
+  }, { once: true });
 }
+
+var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  dock.innerHTML = "";
-
   var ids = ["welcome", "notes", "contacts", "browser", "calculator"];
+
+  var present = {};
   ids.forEach(function (id) {
     if (openApps[id] !== "open" && openApps[id] !== "minimized") return;
+    present[id] = true;
+  });
+
+  Object.keys(dockItems).forEach(function (id) {
+    if (present[id]) return;
+    var item = dockItems[id];
+    delete dockItems[id];
+    item.classList.add("leaving");
+    item.addEventListener("animationend", function () {
+      item.remove();
+      var dock = document.querySelector("#dock");
+      dock.classList.toggle("dock-empty", dock.querySelectorAll(".dock-item").length === 0);
+    });
+  });
+
+  ids.forEach(function (id) {
+    if (!present[id]) return;
+
+    if (dockItems[id]) {
+      dockItems[id].classList.toggle("minimized", openApps[id] === "minimized");
+      return;
+    }
 
     var iconImg = document.querySelector("#" + id + "icon img");
     var src = iconImg ? iconImg.src : "https://images.squarespace-cdn.com/content/v1/61c0ba022ed26d6e4203a094/41e6bec2-60cb-47f6-8199-0c9e52f63f52/TBOI-ICO-Isaac.png?format=300w";
@@ -103,8 +203,11 @@ function renderDock(){
       openWindow(document.getElementById(id));
     });
 
+    dockItems[id] = item;
     dock.appendChild(item);
   });
+
+  dock.classList.toggle("dock-empty", dock.querySelectorAll(".dock-item").length === 0);
 }
 
 // Draggable window
@@ -130,9 +233,7 @@ function dragElement(element) {
   }
 
   function currentScale() {
-    if (!osContainer) return 1;
-    var match = osContainer.style.transform.match(/scale\(([\d.]+)\)/);
-    return match ? parseFloat(match[1]) : 1;
+    return getOsScale();
   }
 
   function elementDrag(e) {
@@ -184,7 +285,13 @@ function initializeApp(id) {
   var screen = initializeWindow(id);
   var icon = document.querySelector("#" + id + "icon");
 
+  makeIconDraggable(icon);
+
   icon.addEventListener("click", function () {
+    if (icon._dragged) {
+      icon._dragged = false;
+      return;
+    }
     handleIconTap(icon);
     openWindow(screen);
   });
@@ -192,11 +299,86 @@ function initializeApp(id) {
   return screen;
 }
 
+function makeIconDraggable(icon) {
+  var dragging = false;
+  var moved = false;
+  var startX = 0;
+  var startY = 0;
+  var offsetX = 0;
+  var offsetY = 0;
+
+  icon.addEventListener("mousedown", function (e) {
+    e = e || window.event;
+    e.preventDefault();
+    var s = getOsScale();
+    startX = e.clientX;
+    startY = e.clientY;
+    offsetX = (e.clientX / s) - icon.offsetLeft;
+    offsetY = (e.clientY / s) - icon.offsetTop;
+    dragging = true;
+    moved = false;
+
+    document.onmousemove = function (ev) {
+      if (!dragging) return;
+      ev = ev || window.event;
+      ev.preventDefault();
+      var s2 = getOsScale();
+      var x = (ev.clientX / s2) - offsetX;
+      var y = (ev.clientY / s2) - offsetY;
+      if (Math.abs(ev.clientX - startX) > 3 || Math.abs(ev.clientY - startY) > 3) {
+        moved = true;
+      }
+      icon.style.left = Math.max(0, x) + "px";
+      icon.style.top = Math.max(0, y) + "px";
+    };
+
+    document.onmouseup = function () {
+      dragging = false;
+      document.onmousemove = null;
+      document.onmouseup = null;
+      if (moved) {
+        icon._dragged = true;
+        saveIconPositions();
+      }
+    };
+  });
+}
+
+var iconPositionsKey = "isaacos_icon_positions";
+
+function saveIconPositions() {
+  try {
+    var positions = {};
+    document.querySelectorAll(".appicon").forEach(function (icon) {
+      if (icon.style.left !== "" && icon.style.top !== "") {
+        positions[icon.id] = { left: icon.style.left, top: icon.style.top };
+      }
+    });
+    localStorage.setItem(iconPositionsKey, JSON.stringify(positions));
+  } catch (e) {}
+}
+
+function loadIconPositions() {
+  try {
+    var saved = localStorage.getItem(iconPositionsKey);
+    if (!saved) return;
+    var positions = JSON.parse(saved);
+    Object.keys(positions).forEach(function (id) {
+      var icon = document.getElementById(id);
+      if (icon) {
+        icon.style.left = positions[id].left;
+        icon.style.top = positions[id].top;
+      }
+    });
+  } catch (e) {}
+}
+
+loadIconPositions();
+
 var welcomeScreen = initializeWindow("welcome");
 var welcomeScreenOpen = document.querySelector("#welcomeopen");
 
-openApps["welcome"] = "open";
-renderDock();
+openWindow(welcomeScreen);
 
 welcomeScreenOpen.addEventListener("click", function () {
   openWindow(welcomeScreen);
@@ -604,9 +786,9 @@ function deleteNote(index) {
 document.querySelector("#newNoteBtn").addEventListener("click", function () {
   var index = content.length;
   content.push({
-    title: "Nuova nota",
+    title: "New note",
     date: new Date().toLocaleDateString("it-IT"),
-    content: "<h2>Nuova nota</h2><p></p>"
+    content: "<h2>New note</h2><p></p>"
   });
   saveNotes();
   addToSideBar(index);
