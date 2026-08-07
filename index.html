@@ -26,16 +26,20 @@
       <p class="appicon-label">Notes</p>
     </div>
     <div class="appicon" id="contactsicon">
-      <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/2/24/Collectible_Poke_Go_icon.png/revision/latest?cb=20210822021043" alt="contatti"></div>
+      <div class="appicon-img"><img src="img/contactsicon.png" alt="contatti"></div>
       <p class="appicon-label">Find me</p>
     </div>
     <div class="appicon" id="browsericon">
-      <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/d/d7/Collectible_Gimpy_icon.png/revision/latest?cb=20210821054815" alt="browser"></div>
+      <div class="appicon-img"><img src="img/browsericon.png" alt="browser"></div>
       <p class="appicon-label">Browser</p>
     </div>
     <div class="appicon" id="calculatoricon">
-      <div class="appicon-img"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/f/fc/Collectible_Spindown_Dice_icon.png/revision/latest?cb=20210822150518" alt="calculator"></div>
+      <div class="appicon-img"><img src="img/calculatoricon.png" alt="calculator"></div>
       <p class="appicon-label">Calculator</p>
+    </div>
+    <div class="appicon" id="compendiumicon">
+      <div class="appicon-img"><img src="img/compendiumicon.png" alt="compendium"></div>
+      <p class="appicon-label">Compendium</p>
     </div>
   </div>  
 
@@ -46,7 +50,7 @@
       <div class="closebutton" id="welcomeclose"></div>
     </div>
     <div class="window-body">
-      <img class="avatar" src="https://images.squarespace-cdn.com/content/v1/61c0ba022ed26d6e4203a094/41e6bec2-60cb-47f6-8199-0c9e52f63f52/TBOI-ICO-Isaac.png?format=300w" alt="avatar">
+      <img class="avatar" src="img/avatar-isaac.png" alt="avatar">
       <h1>Welcome to IsaacOS</h1>
       <p>
         Eeugh. 
@@ -87,7 +91,7 @@
           <span class="contact-arrow">→</span>
         </a>
         <a class="contact-card" href="https://instagram.com/sergiogiuntaa" target="_blank">
-          <span class="contact-emoji"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/f/f6/Collectible_Abaddon_icon.png/revision/latest?cb=20210821081514" alt="instagram"></span>
+          <span class="contact-emoji"><img src="img/instagramicon.png" alt="instagram"></span>
           <span class="contact-info">
             <span class="contact-name">Instagram</span>
             <span class="contact-handle">@sergiogiuntaa</span>
@@ -125,10 +129,10 @@
         <h2>IsaacWeb</h2>
         <p class="browser-home-sub">Honestly, it doesn't do much.</p>
         <div class="browser-links">
-          <a href="#" data-url="https://www.wikipedia.org/"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/e/e6/Collectible_Satanic_Bible_icon.png/revision/latest?cb=20210821060628" alt="wikipedia"> Wikipedia</a>
-          <a href="#" data-url="https://en.wiktionary.org/wiki/Wiktionary:Main_Page"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/d/de/Collectible_Book_of_Shadows_icon.png/revision/latest?cb=20210821041149" alt="wiktionary"> Wiktionary</a>
-          <a href="#" data-url="https://archive.org/"><img src="https://static.wikia.nocookie.net/bindingofisaacre_gamepedia/images/c/c6/Collectible_Anarchist_Cookbook_icon.png/revision/latest?cb=20210821040839" alt="archive.org"> Archive.org</a>
-          <a href="#" data-url="https://pickledroided.github.io/webbandola/"><img src="https://bindingofisaacrebirth.wiki.gg/images/Pickup_Wild_Card_icon.png?3e9d7d" alt="domino"> Don't</a>
+          <a href="#" data-url="https://www.wikipedia.org/"><img src="img/wikipedialink.png" alt="wikipedia"> Wikipedia</a>
+          <a href="#" data-url="https://en.wiktionary.org/wiki/Wiktionary:Main_Page"><img src="img/wiktionarylink.png" alt="wiktionary"> Wiktionary</a>
+          <a href="#" data-url="https://archive.org/"><img src="img/archivelink.png" alt="archive.org"> Archive.org</a>
+          <a href="#" data-url="https://pickledroided.github.io/webbandola/"><img src="img/dominiolink.png" alt="domino"> Don't</a>
         </div>
       </div>
       <iframe class="browser-frame" id="browserFrame" title="browser"></iframe>
@@ -172,6 +176,32 @@
     </div>
   </div>
 
+  <div class="window" id="compendium" style="display: none;">
+    <div class="windowheader" id="compendiumheader">
+      <span class="window-title">Compendium</span>
+      <div class="minbutton" id="compendiummin" title="Minimizza"></div>
+      <div class="closebutton" id="compendiumclose"></div>
+    </div>
+    <div class="compendium-app">
+      <div class="compendium-main">
+        <div class="compendium-toolbar">
+          <input class="compendium-search" id="compendiumSearch" type="text" placeholder="Search by name or quotes...">
+          <select class="compendium-sort" id="compendiumSort">
+            <option value="id">Sort by ID</option>
+            <option value="alpha">Alphabetical</option>
+            <option value="quality">Quality (4 → 0)</option>
+          </select>
+        </div>
+        <div class="compendium-filters" id="compendiumFilters"></div>
+        <div class="compendium-list" id="compendiumList"></div>
+      </div>
+      <div class="compendium-detail" id="compendiumDetail">
+        <div class="compendium-detail-empty">Select an item</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/items.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

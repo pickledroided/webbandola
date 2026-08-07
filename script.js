@@ -1,4 +1,3 @@
-// Clock
 function updateTime() {
   var now = new Date().toLocaleString();
   document.querySelector("#timeElement").innerHTML = now;
@@ -6,7 +5,6 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime();
 
-// --- Scale OS to fit the screen (enables nested OS-in-OS recursion) ---
 
 var osContainer = document.getElementById("os");
 
@@ -165,7 +163,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -194,7 +192,7 @@ function renderDock(){
     }
 
     var iconImg = document.querySelector("#" + id + "icon img");
-    var src = iconImg ? iconImg.src : "https://images.squarespace-cdn.com/content/v1/61c0ba022ed26d6e4203a094/41e6bec2-60cb-47f6-8199-0c9e52f63f52/TBOI-ICO-Isaac.png?format=300w";
+    var src = iconImg ? iconImg.src : "img/avatar-isaac.png";
     var item = document.createElement("div");
     item.className = "dock-item" + (openApps[id] === "minimized" ? " minimized" : "");
     item.innerHTML = '<img src="' + src + '" alt="' + id + '">';
@@ -210,7 +208,6 @@ function renderDock(){
   dock.classList.toggle("dock-empty", dock.querySelectorAll(".dock-item").length === 0);
 }
 
-// Draggable window
 function dragElement(element) {
   var initialX = 0;
   var initialY = 0;
@@ -254,8 +251,6 @@ function dragElement(element) {
   }
 }
 
-// --- Icon selection ---
-
 var selectedIcon = undefined;
 
 function selectIcon(element) {
@@ -278,8 +273,6 @@ function handleIconTap(element) {
     selectIcon(element);
   }
 }
-
-// --- Open welcome + apps ---
 
 function initializeApp(id) {
   var screen = initializeWindow(id);
@@ -371,7 +364,7 @@ function loadIconPositions() {
       }
     });
   } catch (e) {}
-}
+} 
 
 loadIconPositions();
 
@@ -388,8 +381,8 @@ var notesScreen = initializeApp("notes");
 var contactsScreen = initializeApp("contacts");
 var browserScreen = initializeApp("browser");
 var calculatorScreen = initializeApp("calculator");
+var compendiumScreen = initializeApp("compendium");
 
-// --- Calculator app ---
 
 var calcDisplay = document.querySelector("#calcDisplay");
 var calcState = {
@@ -556,8 +549,6 @@ document.querySelectorAll(".calc-btn").forEach(function (btn) {
   });
 });
 
-// --- Browser app ---
-
 var browserFrame = document.querySelector("#browserFrame");
 var browserUrl = document.querySelector("#browserUrl");
 var browserHomePage = document.querySelector("#browserHomePage");
@@ -667,8 +658,6 @@ document.querySelectorAll(".browser-links a").forEach(function (link) {
   });
 });
 
-// --- Notes app content ---
-
 var defaultContent = [
   {
     title: "isaac's diary",
@@ -676,13 +665,14 @@ var defaultContent = [
     content: `
       <h2>isaac's diary</h2>
       <p>
-        mom, you crazy
+        mom, that one day you locked me in my room... I think I saw a tear rolling down your face.
       </p>
       <blockquote>
         Eeugh.
         ~ Isaac
       </blockquote>
-      <p>blue baby where u at</p>
+      <p>maybe it's not that bad... maybe i can find a way out.</p>
+      <p> and then i became blue baby lol </p>
     `
   }
 ];
@@ -808,3 +798,302 @@ for (var i = 0; i < content.length; i++) {
 
 setNotesContent(0);
 sidebar.querySelector(".sidebar-item").classList.add("active");
+
+// --- Compendium app ---
+
+var compItems = [];
+var compPools = [];
+var compQuery = "";
+var compSort = "id";
+var compFilterType = "all";
+var compFilterDlc = "all";
+var compFilterQuality = "all";
+var compFilterPool = "all";
+var compSelectedKey = null;
+
+var compList = document.querySelector("#compendiumList");
+var compDetail = document.querySelector("#compendiumDetail");
+var compSearch = document.querySelector("#compendiumSearch");
+var compSortSel = document.querySelector("#compendiumSort");
+var compFiltersEl = document.querySelector("#compendiumFilters");
+
+var DLC_ORDER = ["Rebirth", "Afterbirth", "Afterbirth+", "Repentance", "Repentance+"];
+var POOL_MAIN = [
+  "Treasure Room", "Boss", "Devil Room", "Angel Room",
+  "Shop", "Secret Room", "Ultra Secret Room", "Curse Room"
+];
+
+function compSortPools(list) {
+  if (!list) return [];
+  return list.slice().sort(function (a, b) {
+    var ia = POOL_MAIN.indexOf(a);
+    var ib = POOL_MAIN.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function compEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function compQualityColor(q) {
+  switch (q) {
+    case 4: return "#e53935";
+    case 3: return "#ef6c00";
+    case 2: return "#29b6f6";
+    case 1: return "#9e9e9e";
+    default: return "#6a6a6a";
+  }
+}
+
+function compFiltered() {
+  var q = compQuery.trim().toLowerCase();
+  return compItems.filter(function (item) {
+    if (compFilterType === "active" && !item.active) return false;
+    if (compFilterType === "passive" && item.active) return false;
+    if (compFilterDlc !== "all" && item.introduced !== compFilterDlc) return false;
+    if (compFilterPool !== "all" && (!item.pools || item.pools.indexOf(compFilterPool) === -1)) return false;
+    if (compFilterQuality !== "all") {
+      var ql = item.quality == null ? 0 : item.quality;
+      if (ql !== parseInt(compFilterQuality, 10)) return false;
+    }
+    if (q) {
+      var hay = (item.name + " " + item.quote).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function compSortItems(list) {
+  return list.slice().sort(function (a, b) {
+    if (compSort === "alpha") {
+      return a.name.localeCompare(b.name);
+    }
+    if (compSort === "quality") {
+      var qa = a.quality == null ? -1 : a.quality;
+      var qb = b.quality == null ? -1 : b.quality;
+      if (qb !== qa) return qb - qa;
+      return a.id - b.id;
+    }
+    return a.id - b.id;
+  });
+}
+
+function compRender() {
+  var list = compSortItems(compFiltered());
+
+  if (list.length === 0) {
+    compList.innerHTML = '<div class="compendium-empty">No item found.</div>';
+  } else {
+    compList.innerHTML = list.map(function (item) {
+      return '<button class="compendium-card' + (compSelectedKey === item.key ? " selected" : "") + '" data-key="' + compEsc(item.key) + '">' +
+        '<img class="compendium-card-img" src="' + compEsc(item.icon) + '" alt="" loading="lazy">' +
+        '<span class="compendium-card-name">' + compEsc(item.name) + '</span>' +
+        '<span class="compendium-card-q" style="color:' + compQualityColor(item.quality) + '">' +
+        (item.quality == null ? "?" : item.quality) + '</span>' +
+        '</button>';
+    }).join("");
+  }
+
+  compRenderDetail();
+}
+
+function compRenderDetail() {
+  var item = compItems.find(function (i) { return i.key === compSelectedKey; });
+  if (!item) {
+    compDetail.innerHTML = '<div class="compendium-detail-empty">Select an item</div>';
+    return;
+  }
+
+  var stars = "";
+  for (var s = 0; s < 4; s++) {
+    stars += '<span class="comp-star' + (s < (item.quality || 0) ? " on" : "") + '"></span>';
+  }
+
+  compDetail.innerHTML =
+    '<div class="compendium-detail-head">' +
+      '<img class="compendium-detail-img" src="' + compEsc(item.icon) + '" alt="">' +
+      '<div class="compendium-detail-titles">' +
+        '<h3 class="compendium-detail-name">' + compEsc(item.name) + '</h3>' +
+        '<p class="compendium-detail-quote">"' + compEsc(item.quote) + '"</p>' +
+      '</div>' +
+    '</div>' +
+    '<div class="compendium-detail-meta">' +
+      '<div class="compendium-detail-chip">' + (item.active ? "Active" : "Passive") + '</div>' +
+      '<div class="compendium-detail-chip">' + compEsc(item.introduced) + '</div>' +
+      '<div class="compendium-detail-quality" title="Quality">' + stars + '<span class="compendium-quality-num">' + (item.quality == null ? "?" : item.quality) + '/4</span></div>' +
+      '<div class="compendium-detail-id">ID ' + item.id + '</div>' +
+    '</div>' +
+    '<p class="compendium-detail-desc">' + compEsc(item.description) + '</p>' +
+    compPoolHtml(item) +
+    compUnlockHtml(item) +
+    '<a class="compendium-detail-link" href="' + compEsc(item.wiki) + '" target="_blank" rel="noopener">Open in wiki.gg →</a>';
+}
+
+function compUnlockIconList(list, kind) {
+  if (!list || !list.length) return "";
+  return '<div class="compendium-unlock-row">' +
+    '<span class="compendium-unlock-kind">' + kind + '</span>' +
+    list.map(function (e) {
+      var icon = e.icon
+        ? '<img class="compendium-unlock-icon" src="' + compEsc(e.icon) + '" alt="">'
+        : '<span class="compendium-unlock-noicon">?</span>';
+      return '<div class="compendium-unlock-entity" title="' + compEsc(e.name) + '">' +
+        icon + '<span class="compendium-unlock-name">' + compEsc(e.name) + '</span>' +
+        '</div>';
+    }).join("") + '</div>';
+}
+
+function compPoolHtml(item) {
+  if (!item.pools || !item.pools.length) return "";
+  return '<div class="compendium-pool">' +
+    '<h4 class="compendium-pool-title">Item Pool</h4>' +
+    '<div class="compendium-pool-chips">' +
+    compSortPools(item.pools).map(function (p) {
+      return '<span class="compendium-pool-chip">' + compEsc(p) + '</span>';
+    }).join("") +
+    '</div></div>';
+}
+
+function compUnlockHtml(item) {
+  if (!item.unlock) return "";
+  var h = '<div class="compendium-unlock">' +
+    '<h4 class="compendium-unlock-title">How to unlock</h4>' +
+    '<p class="compendium-unlock-text">' + compEsc(item.unlock.text) + '</p>';
+  if (item.unlock.bosses && item.unlock.bosses.length) {
+    h += compUnlockIconList(item.unlock.bosses, "Boss");
+  }
+  if (item.unlock.characters && item.unlock.characters.length) {
+    h += compUnlockIconList(item.unlock.characters, "Character");
+  }
+  h += '</div>';
+  return h;
+}
+
+function compBuildFilters() {
+  var dlcs = DLC_ORDER.filter(function (dlc) {
+    return compItems.some(function (i) { return i.introduced === dlc; });
+  });
+
+  var typeChips = [
+    { value: "all", label: "All" },
+    { value: "active", label: "Actives" },
+    { value: "passive", label: "Passives" }
+  ];
+  var dlcChips = [{ value: "all", label: "All DLCs" }].concat(
+    dlcs.map(function (d) { return { value: d, label: d }; })
+  );
+  var qualityChips = [{ value: "all", label: "Quality: all" }].concat(
+    [4, 3, 2, 1, 0].map(function (v) {
+      var count = compItems.filter(function (i) { return (i.quality == null ? 0 : i.quality) === v; }).length;
+      return { value: String(v), label: "Q" + v + " (" + count + ")" };
+    })
+  );
+  var poolMain = compSortPools(compPools).filter(function (p) { return POOL_MAIN.indexOf(p) !== -1; });
+  var poolOther = compPools.filter(function (p) { return POOL_MAIN.indexOf(p) === -1; });
+  var poolMainChips = poolMain.map(function (p) {
+    var count = compItems.filter(function (i) { return i.pools && i.pools.indexOf(p) !== -1; }).length;
+    return { value: p, label: p + " (" + count + ")" };
+  });
+  var poolOtherChips = poolOther.map(function (p) {
+    var count = compItems.filter(function (i) { return i.pools && i.pools.indexOf(p) !== -1; }).length;
+    return { value: p, label: p + " (" + count + ")" };
+  });
+
+  function chipGroup(caption, chips, current, handler) {
+    return '<div class="compendium-chipgroup" data-group="' + caption + '"><span class="compendium-chiplabel">' + caption + '</span>' +
+      chips.map(function (c) {
+        return '<button class="compendium-chip' + (current === c.value ? " active" : "") + '" data-value="' + c.value + '">' + c.label + '</button>';
+      }).join("") + '</div>';
+  }
+
+  function poolGroup() {
+    return '<div class="compendium-chipgroup compendium-poolgroup" data-group="Pool">' +
+      '<span class="compendium-chiplabel">Pool</span>' +
+      poolMainChips.map(function (c) {
+        return '<button class="compendium-chip' + (compFilterPool === c.value ? " active" : "") + '" data-value="' + c.value + '">' + c.label + '</button>';
+      }).join("") +
+      '<select class="compendium-sort compendium-poolselect" id="compendiumPoolSelect">' +
+      '<option value="all">More pools…</option>' +
+      poolOtherChips.map(function (c) {
+        return '<option value="' + c.value + '"' + (compFilterPool === c.value ? " selected" : "") + '>' + c.label + '</option>';
+      }).join("") +
+      '</select>' +
+      '</div>';
+  }
+
+  compFiltersEl.innerHTML =
+    chipGroup("Type", typeChips, compFilterType, "type") +
+    chipGroup("DLC", dlcChips, compFilterDlc, "dlc") +
+    chipGroup("Quality", qualityChips, compFilterQuality, "quality") +
+    poolGroup();
+
+  compFiltersEl.querySelectorAll(".compendium-chip").forEach(function (chip) {
+    var group = chip.closest(".compendium-chipgroup").getAttribute("data-group");
+    chip.addEventListener("click", function () {
+      var v = chip.getAttribute("data-value");
+      if (group === "Type") compFilterType = v;
+      else if (group === "DLC") compFilterDlc = v;
+      else if (group === "Quality") compFilterQuality = v;
+      else if (group === "Pool") {
+        compFilterPool = compFilterPool === v ? "all" : v;
+        var sel = document.getElementById("compendiumPoolSelect");
+        if (sel) sel.value = compFilterPool === "all" || POOL_MAIN.indexOf(compFilterPool) !== -1 ? "all" : compFilterPool;
+      }
+      compBuildFilters();
+      compRender();
+    });
+  });
+
+  var poolSel = document.getElementById("compendiumPoolSelect");
+  if (poolSel) {
+    poolSel.addEventListener("change", function () {
+      compFilterPool = poolSel.value;
+      compBuildFilters();
+      compRender();
+    });
+  }
+}
+
+compSearch.addEventListener("input", function () {
+  compQuery = compSearch.value;
+  compRender();
+});
+
+compSortSel.addEventListener("change", function () {
+  compSort = compSortSel.value;
+  compRender();
+});
+
+compList.addEventListener("click", function (e) {
+  var card = e.target.closest(".compendium-card");
+  if (!card) return;
+  compSelectedKey = card.getAttribute("data-key");
+  compRender();
+});
+
+function compInit() {
+  if (typeof window.ISAAC_ITEMS === "undefined" || !window.ISAAC_ITEMS) {
+    compList.innerHTML = '<div class="compendium-empty">Failed to load data.</div>';
+    return;
+  }
+  compItems = window.ISAAC_ITEMS;
+  var poolSet = {};
+  compItems.forEach(function (i) {
+    (i.pools || []).forEach(function (p) { poolSet[p] = true; });
+  });
+  compPools = Object.keys(poolSet).sort();
+  compBuildFilters();
+  compRender();
+}
+
+compInit();
