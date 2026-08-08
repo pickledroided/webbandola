@@ -163,7 +163,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -382,6 +382,7 @@ var contactsScreen = initializeApp("contacts");
 var browserScreen = initializeApp("browser");
 var calculatorScreen = initializeApp("calculator");
 var compendiumScreen = initializeApp("compendium");
+var galleryScreen = initializeApp("gallery");
 
 
 var calcDisplay = document.querySelector("#calcDisplay");
@@ -1365,3 +1366,79 @@ function compInit() {
 }
 
 compInit();
+
+// --- Gallery app ---
+
+var galleryGrid = document.querySelector("#galleryGrid");
+var galleryPhotos = typeof window.ISAAC_PHOTOS !== "undefined" && window.ISAAC_PHOTOS
+  ? window.ISAAC_PHOTOS
+  : [];
+
+function galleryPhotoSrc(file) {
+  return "photos/" + encodeURIComponent(file);
+}
+
+function galleryRender() {
+  if (!galleryGrid) return;
+  if (galleryPhotos.length === 0) {
+    galleryGrid.innerHTML = '<div class="gallery-empty">No photos yet.\n  Put images in the photos/ folder and run:\n  node tools/build-photos.mjs</div>';
+    return;
+  }
+  galleryGrid.innerHTML = galleryPhotos.map(function (p, i) {
+    return '<button class="gallery-tile" data-index="' + i + '" title="' + p.name + '">' +
+      '<img class="gallery-tile-img" src="' + galleryPhotoSrc(p.file) + '" alt="' + galleryEsc(p.name) + '" loading="lazy">' +
+      '</button>';
+  }).join("");
+}
+
+function galleryEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+var galleryViewer = null;
+var galleryViewerIndex = 0;
+
+function galleryOpenViewer(index) {
+  if (!galleryPhotos.length) return;
+  galleryViewerIndex = (index + galleryPhotos.length) % galleryPhotos.length;
+  if (!galleryViewer) {
+    galleryViewer = document.createElement("div");
+    galleryViewer.className = "gallery-viewer";
+    galleryViewer.innerHTML =
+      '<button class="gallery-viewer-back" title="Torna alla griglia">' +
+        '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z" stroke="none"/></svg>' +
+      '</button>' +
+      '<button class="gallery-viewer-arrow prev" title="Precedente">' +
+        '<svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" stroke="none"/></svg>' +
+      '</button>' +
+      '<img class="gallery-viewer-img" alt="">' +
+      '<button class="gallery-viewer-arrow next" title="Successiva">' +
+        '<svg viewBox="0 0 24 24"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z" stroke="none"/></svg>' +
+      '</button>';
+    galleryGrid.closest(".window").appendChild(galleryViewer);
+    galleryViewer.querySelector(".gallery-viewer-back").addEventListener("click", function () {
+      galleryViewer.classList.remove("open");
+    });
+    galleryViewer.querySelector(".gallery-viewer-arrow.prev").addEventListener("click", function () {
+      galleryOpenViewer(galleryViewerIndex - 1);
+    });
+    galleryViewer.querySelector(".gallery-viewer-arrow.next").addEventListener("click", function () {
+      galleryOpenViewer(galleryViewerIndex + 1);
+    });
+  }
+  galleryViewer.querySelector(".gallery-viewer-img").src = galleryPhotoSrc(galleryPhotos[galleryViewerIndex].file);
+  galleryViewer.classList.add("open");
+}
+
+galleryGrid.addEventListener("dblclick", function (e) {
+  var tile = e.target.closest(".gallery-tile");
+  if (!tile) return;
+  galleryOpenViewer(parseInt(tile.getAttribute("data-index"), 10));
+});
+
+galleryRender();
