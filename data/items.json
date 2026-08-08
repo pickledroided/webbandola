@@ -1723,7 +1723,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Azazel",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Azazel",
@@ -5763,7 +5769,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Lazarus",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Lazarus",
@@ -6343,7 +6355,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as The Lost",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "The Lost",
@@ -6971,7 +6989,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Eve",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Eve",
@@ -7003,7 +7027,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Judas",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Judas",
@@ -7033,7 +7063,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Magdalene",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Magdalene",
@@ -7183,7 +7219,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Cain",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Cain",
@@ -7215,7 +7257,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as ???",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "???",
@@ -7247,7 +7295,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Samson",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Samson",
@@ -7332,7 +7386,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Eden",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Eden",
@@ -9609,7 +9669,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as Lilith",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Lilith",
@@ -10235,7 +10301,13 @@
     ],
     "unlock": {
       "text": "Defeat Mega Satan as every character ( except tainted characters)",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Mega Satan",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Mega_Satan_portrait.png?2fc483",
+          "ingame": "Mega Satan Head ingame.png"
+        }
+      ],
       "characters": []
     }
   },
@@ -13055,7 +13127,13 @@
     ],
     "unlock": {
       "text": "Complete the Boss Rush as The Forgotten",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "The Forgotten",
@@ -13384,7 +13462,13 @@
     ],
     "unlock": {
       "text": "Complete Boss Rush as Jacob and Esau",
-      "bosses": [],
+      "bosses": [
+        {
+          "name": "Boss Rush",
+          "icon": "https://bindingofisaacrebirth.wiki.gg/images/Boss_Rush_Icon.png?fa25b8",
+          "ingame": "Boss Rush Icon.png"
+        }
+      ],
       "characters": [
         {
           "name": "Jacob and Esau",

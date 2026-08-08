@@ -801,6 +801,7 @@ sidebar.querySelector(".sidebar-item").classList.add("active");
 
 // --- Compendium app ---
 
+var compSection = "items";
 var compItems = [];
 var compPools = [];
 var compQuery = "";
@@ -810,18 +811,122 @@ var compFilterDlc = "all";
 var compFilterQuality = "all";
 var compFilterPool = "all";
 var compSelectedKey = null;
+var compUnlockCat = null; // null | "characters" | "challenges" | "items" per la tab Unlocks
 
 var compList = document.querySelector("#compendiumList");
 var compDetail = document.querySelector("#compendiumDetail");
 var compSearch = document.querySelector("#compendiumSearch");
 var compSortSel = document.querySelector("#compendiumSort");
 var compFiltersEl = document.querySelector("#compendiumFilters");
+var compTabs = document.querySelector("#compendiumTabs");
 
 var DLC_ORDER = ["Rebirth", "Afterbirth", "Afterbirth+", "Repentance", "Repentance+"];
 var POOL_MAIN = [
   "Treasure Room", "Boss", "Devil Room", "Angel Room",
   "Shop", "Secret Room", "Ultra Secret Room", "Curse Room"
 ];
+
+function compSectionCfg() {
+  if (compSection === "trinkets") {
+    return { label: "Trinkets", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "quote"] };
+  }
+  if (compSection === "unlocks") {
+    if (compUnlockCat === "characters") {
+      return { label: "Characters", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "unlock", "unlockName"] };
+    }
+    if (compUnlockCat === "challenges") {
+      return { label: "Challenges", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "goal", "reward", "requirements"] };
+    }
+    if (compUnlockCat === "items") {
+      return { label: "Items", hasType: true, hasQuality: true, hasDLC: true, hasPools: true, search: ["name", "quote"] };
+    }
+    return { label: "Unlocks", hasType: false, hasQuality: false, hasDLC: false, search: [] };
+  }
+  return { label: "Items", hasType: true, hasQuality: true, hasDLC: true, hasPools: true, search: ["name", "quote"] };
+}
+
+function compIsUnlocksHub() {
+  return compSection === "unlocks" && (compUnlockCat === null || compUnlockCat === "");
+}
+
+function compUnlockCatData(cat) {
+  if (cat === "characters") return window.ISAAC_CHARACTERS || [];
+  if (cat === "challenges") return window.ISAAC_CHALLENGES || [];
+  if (cat === "items") return (window.ISAAC_ITEMS || []).filter(function (i) { return !!i.unlock; });
+  return [];
+}
+
+function compUnlockCatConfig() {
+  return [
+    { key: "characters", label: "Characters", icon: "img/avatar-isaac.png" },
+    { key: "challenges", label: "Challenges", icon: "img/compendiumicon.png" },
+    { key: "items", label: "Items", icon: "https://bindingofisaacrebirth.wiki.gg/images/Collectible_Transcendence_icon.png?5ad625" }
+  ];
+}
+
+function compOpenUnlockCat(cat) {
+  compUnlockCat = cat;
+  compItems = compUnlockCatData(cat);
+  compQuery = "";
+  compSearch.value = "";
+  compSort = "id";
+  compSortSel.value = "id";
+  compFilterType = "all";
+  compFilterDlc = "all";
+  compFilterQuality = "all";
+  compFilterPool = "all";
+  compSelectedKey = null;
+  var back = document.getElementById("compendiumBack");
+  if (back) back.style.display = "";
+  compBuildFilters();
+  compRender();
+}
+
+function compOpenUnlocksHub() {
+  compUnlockCat = null;
+  compSelectedKey = null;
+  var back = document.getElementById("compendiumBack");
+  if (back) back.style.display = "none";
+  compBuildFilters();
+  compRender();
+}
+
+function compSectionData() {
+  if (compSection === "trinkets") return window.ISAAC_TRINKETS || [];
+  if (compSection === "unlocks") return compUnlockCat ? compUnlockCatData(compUnlockCat) : [];
+  return window.ISAAC_ITEMS || [];
+}
+
+function compSetSection(name) {
+  compSection = name;
+  compUnlockCat = null;
+  var back = document.getElementById("compendiumBack");
+  if (back) back.style.display = "none";
+  compItems = compSectionData();
+  var poolSet = {};
+  compItems.forEach(function (i) {
+    (i.pools || []).forEach(function (p) { poolSet[p] = true; });
+  });
+  compPools = Object.keys(poolSet).sort();
+  compQuery = "";
+  compSearch.value = "";
+  compSort = "id";
+  compSortSel.value = "id";
+  compFilterType = "all";
+  compFilterDlc = "all";
+  compFilterQuality = "all";
+  compFilterPool = "all";
+  compSelectedKey = null;
+  compRenderTabs();
+  compBuildFilters();
+  compRender();
+}
+
+function compRenderTabs() {
+  compTabs.innerHTML = [["items", "Items"], ["trinkets", "Trinkets"], ["unlocks", "Unlocks"]].map(function (t) {
+    return '<button class="compendium-tab' + (compSection === t[0] ? " active" : "") + '" data-section="' + t[0] + '">' + t[1] + '</button>';
+  }).join("");
+}
 
 function compSortPools(list) {
   if (!list) return [];
@@ -856,17 +961,20 @@ function compQualityColor(q) {
 
 function compFiltered() {
   var q = compQuery.trim().toLowerCase();
+  var cfg = compSectionCfg();
   return compItems.filter(function (item) {
-    if (compFilterType === "active" && !item.active) return false;
-    if (compFilterType === "passive" && item.active) return false;
-    if (compFilterDlc !== "all" && item.introduced !== compFilterDlc) return false;
-    if (compFilterPool !== "all" && (!item.pools || item.pools.indexOf(compFilterPool) === -1)) return false;
-    if (compFilterQuality !== "all") {
+    if (cfg.hasType) {
+      if (compFilterType === "active" && !item.active) return false;
+      if (compFilterType === "passive" && item.active) return false;
+    }
+    if (cfg.hasDLC && compFilterDlc !== "all" && item.introduced !== compFilterDlc) return false;
+    if (cfg.hasPools && compFilterPool !== "all" && (!item.pools || item.pools.indexOf(compFilterPool) === -1)) return false;
+    if (cfg.hasQuality && compFilterQuality !== "all") {
       var ql = item.quality == null ? 0 : item.quality;
       if (ql !== parseInt(compFilterQuality, 10)) return false;
     }
     if (q) {
-      var hay = (item.name + " " + item.quote).toLowerCase();
+      var hay = cfg.search.map(function (k) { return item[k]; }).join(" ").toLowerCase();
       if (hay.indexOf(q) === -1) return false;
     }
     return true;
@@ -874,32 +982,66 @@ function compFiltered() {
 }
 
 function compSortItems(list) {
+  if (compSection === "unlocks" && compUnlockCat === "characters") {
+    return list.slice().sort(function (a, b) {
+      var at = isTaintedChar(a);
+      var bt = isTaintedChar(b);
+      if (at !== bt) return at ? 1 : -1;
+      if (compSort === "alpha") return a.name.localeCompare(b.name);
+      return 0;
+    });
+  }
   return list.slice().sort(function (a, b) {
     if (compSort === "alpha") {
       return a.name.localeCompare(b.name);
     }
     if (compSort === "quality") {
-      var qa = a.quality == null ? -1 : a.quality;
-      var qb = b.quality == null ? -1 : b.quality;
+      var qa = (a.quality == null ? -1 : a.quality);
+      var qb = (b.quality == null ? -1 : b.quality);
       if (qb !== qa) return qb - qa;
-      return a.id - b.id;
+      return (a.id == null ? 0 : a.id) - (b.id == null ? 0 : b.id);
     }
-    return a.id - b.id;
+    if (a.number != null && b.number != null) {
+      return a.number - b.number;
+    }
+    return (a.id == null ? 0 : a.id) - (b.id == null ? 0 : b.id);
   });
 }
 
+function isTaintedChar(c) {
+  return /^Tainted\b/i.test(c.name || "");
+}
+
 function compRender() {
+  if (compIsUnlocksHub()) {
+    compRenderHub();
+    return;
+  }
   var list = compSortItems(compFiltered());
 
+  var isChars = compSection === "unlocks" && compUnlockCat === "characters";
+  compList.classList.toggle("compendium-list-big", isChars);
+
   if (list.length === 0) {
-    compList.innerHTML = '<div class="compendium-empty">No item found.</div>';
+    compList.innerHTML = '<div class="compendium-empty">No ' + compSectionCfg().label.toLowerCase() + ' found.</div>';
   } else {
     compList.innerHTML = list.map(function (item) {
-      return '<button class="compendium-card' + (compSelectedKey === item.key ? " selected" : "") + '" data-key="' + compEsc(item.key) + '">' +
-        '<img class="compendium-card-img" src="' + compEsc(item.icon) + '" alt="" loading="lazy">' +
+      var q = item.quality == null
+        ? ""
+        : '<span class="compendium-card-q" style="color:' + compQualityColor(item.quality) + '">' + item.quality + '</span>';
+      var num = item.number != null
+        ? '<span class="compendium-card-num">#' + item.number + '</span>'
+        : "";
+      var img = item.icon
+        ? '<img class="compendium-card-img" src="' + compEsc(item.icon) + '" alt="" loading="lazy">'
+        : '<span class="compendium-card-noimg">' + (item.number != null ? '#' + item.number : '?') + '</span>';
+      var extra = isChars && item.bossUnlocks && item.bossUnlocks.length
+        ? '<span class="compendium-card-bosses">' + item.bossUnlocks.length + ' boss</span>'
+        : "";
+      return '<button class="compendium-card' + (isChars ? " compendium-card-big" : "") + (compSelectedKey === item.key ? " selected" : "") + '" data-key="' + compEsc(item.key) + '">' +
+        img +
         '<span class="compendium-card-name">' + compEsc(item.name) + '</span>' +
-        '<span class="compendium-card-q" style="color:' + compQualityColor(item.quality) + '">' +
-        (item.quality == null ? "?" : item.quality) + '</span>' +
+        q + num + extra +
         '</button>';
     }).join("");
   }
@@ -907,35 +1049,66 @@ function compRender() {
   compRenderDetail();
 }
 
+function compRenderHub() {
+  compList.innerHTML = '<div class="compendium-hub">' +
+    compUnlockCatConfig().map(function (c) {
+      var count = compUnlockCatData(c.key).length;
+      return '<button class="compendium-hub-tile" data-cat="' + c.key + '">' +
+        '<img class="compendium-hub-img" src="' + compEsc(c.icon) + '" alt="">' +
+        '<span class="compendium-hub-name">' + c.label + '</span>' +
+        '<span class="compendium-hub-count">' + count + '</span>' +
+        '</button>';
+    }).join("") + '</div>';
+  compDetail.innerHTML = '<div class="compendium-detail-empty">Pick a category to browse its unlocks.</div>';
+}
+
 function compRenderDetail() {
   var item = compItems.find(function (i) { return i.key === compSelectedKey; });
   if (!item) {
-    compDetail.innerHTML = '<div class="compendium-detail-empty">Select an item</div>';
+    compDetail.innerHTML = '<div class="compendium-detail-empty">Select an ' + compSectionCfg().label.toLowerCase() + '</div>';
     return;
   }
 
+  var cfg = compSectionCfg();
   var stars = "";
-  for (var s = 0; s < 4; s++) {
-    stars += '<span class="comp-star' + (s < (item.quality || 0) ? " on" : "") + '"></span>';
+  if (cfg.hasQuality && item.quality != null) {
+    for (var s = 0; s < 4; s++) {
+      stars += '<span class="comp-star' + (s < (item.quality || 0) ? " on" : "") + '"></span>';
+    }
   }
+
+  var meta = "";
+  if (cfg.hasType) {
+    meta += '<div class="compendium-detail-chip">' + (item.active ? "Active" : "Passive") + '</div>';
+  }
+  if (cfg.hasDLC) {
+    meta += '<div class="compendium-detail-chip">' + compEsc(item.introduced) + '</div>';
+  }
+  if (stars) {
+    meta += '<div class="compendium-detail-quality" title="Quality">' + stars + '<span class="compendium-quality-num">' + item.quality + '/4</span></div>';
+  }
+  if (item.id != null) {
+    meta += '<div class="compendium-detail-id">ID ' + item.id + '</div>';
+  }
+  if (item.number != null) {
+    meta += '<div class="compendium-detail-id">Challenge #' + item.number + '</div>';
+  }
+
+  var body = compPoolHtml(item) + compUnlockHtml(item);
 
   compDetail.innerHTML =
     '<div class="compendium-detail-head">' +
       '<img class="compendium-detail-img" src="' + compEsc(item.icon) + '" alt="">' +
       '<div class="compendium-detail-titles">' +
         '<h3 class="compendium-detail-name">' + compEsc(item.name) + '</h3>' +
-        '<p class="compendium-detail-quote">"' + compEsc(item.quote) + '"</p>' +
+        (item.quote ? '<p class="compendium-detail-quote">"' + compEsc(item.quote) + '"</p>' : '') +
       '</div>' +
     '</div>' +
-    '<div class="compendium-detail-meta">' +
-      '<div class="compendium-detail-chip">' + (item.active ? "Active" : "Passive") + '</div>' +
-      '<div class="compendium-detail-chip">' + compEsc(item.introduced) + '</div>' +
-      '<div class="compendium-detail-quality" title="Quality">' + stars + '<span class="compendium-quality-num">' + (item.quality == null ? "?" : item.quality) + '/4</span></div>' +
-      '<div class="compendium-detail-id">ID ' + item.id + '</div>' +
-    '</div>' +
-    '<p class="compendium-detail-desc">' + compEsc(item.description) + '</p>' +
-    compPoolHtml(item) +
-    compUnlockHtml(item) +
+    '<div class="compendium-detail-meta">' + meta + '</div>' +
+    (compSection === "unlocks" && compUnlockCat !== "items"
+      ? ''
+      : '<p class="compendium-detail-desc">' + compEsc(item.description) + '</p>') +
+    body +
     '<a class="compendium-detail-link" href="' + compEsc(item.wiki) + '" target="_blank" rel="noopener">Open in wiki.gg →</a>';
 }
 
@@ -954,6 +1127,7 @@ function compUnlockIconList(list, kind) {
 }
 
 function compPoolHtml(item) {
+  if (compSection !== "items") return "";
   if (!item.pools || !item.pools.length) return "";
   return '<div class="compendium-pool">' +
     '<h4 class="compendium-pool-title">Item Pool</h4>' +
@@ -965,6 +1139,80 @@ function compPoolHtml(item) {
 }
 
 function compUnlockHtml(item) {
+  if (compSection === "unlocks") {
+    var h = "";
+    if (compUnlockCat === "characters") {
+      if (item.unlock) {
+        h += '<div class="compendium-unlock">' +
+          '<h4 class="compendium-unlock-title">How to unlock</h4>' +
+          '<p class="compendium-unlock-text">' + compEsc(item.unlock) + '</p></div>';
+      }
+      if (item.unlockName) {
+        h += '<div class="compendium-unlock">' +
+          '<h4 class="compendium-unlock-title">Unlock</h4>' +
+          '<p class="compendium-unlock-text">' + compEsc(item.unlockName) + '</p></div>';
+      }
+      if (item.bossUnlocks && item.bossUnlocks.length) {
+        h += '<div class="compendium-unlock">' +
+          '<h4 class="compendium-unlock-title">Boss unlocks</h4>' +
+          '<div class="compendium-boss-list">' +
+          item.bossUnlocks.map(function (bu) {
+            var bossIcon = bu.boss && bu.boss.icon
+              ? '<img class="compendium-boss-icon" src="' + compEsc(bu.boss.icon) + '" alt="">'
+              : '<span class="compendium-unlock-noicon">?</span>';
+            var itemIcon = bu.itemIcon
+              ? '<img class="compendium-boss-item-icon" src="' + compEsc(bu.itemIcon) + '" alt="">'
+              : '<span class="compendium-unlock-noicon">?</span>';
+            return '<div class="compendium-boss-row">' +
+              '<span class="compendium-boss-side" title="' + compEsc(bu.boss.name) + '">' +
+              bossIcon + '<span class="compendium-boss-name">' + compEsc(bu.boss.name) + '</span>' +
+              '</span>' +
+              '<span class="compendium-boss-arrow">\u2192</span>' +
+              '<span class="compendium-boss-item" title="' + compEsc(bu.item) + '">' +
+              itemIcon + '<span class="compendium-boss-item-name">' + compEsc(bu.item) + '</span>' +
+              '</span>' +
+              '</div>';
+          }).join("") +
+          '</div></div>';
+      }
+      return h;
+    }
+    if (compUnlockCat === "challenges") {
+      if (item.goal) {
+        h += '<div class="compendium-unlock">' +
+          '<h4 class="compendium-unlock-title">Goal</h4>' +
+          '<p class="compendium-unlock-text">' + compEsc(item.goal) + '</p></div>';
+      }
+      if (item.reward) {
+        h += '<div class="compendium-unlock">' +
+          '<h4 class="compendium-unlock-title">Reward</h4>' +
+          '<p class="compendium-unlock-text">' + compEsc(item.reward) + '</p></div>';
+      }
+      if (item.requirements) {
+        h += '<div class="compendium-unlock">' +
+          '<h4 class="compendium-unlock-title">How to unlock</h4>' +
+          '<p class="compendium-unlock-text">' + compEsc(item.requirements) + '</p></div>';
+      }
+      return h;
+    }
+    if (compUnlockCat === "items") {
+      if (!item.unlock) return "";
+      var hi = '<div class="compendium-unlock">' +
+        '<h4 class="compendium-unlock-title">How to unlock</h4>' +
+        '<p class="compendium-unlock-text">' + compEsc(item.unlock.text) + '</p>';
+      if (item.unlock.bosses && item.unlock.bosses.length) {
+        hi += compUnlockIconList(item.unlock.bosses, "Boss");
+      }
+      if (item.unlock.characters && item.unlock.characters.length) {
+        hi += compUnlockIconList(item.unlock.characters, "Character");
+      }
+      hi += '</div>';
+      return hi;
+    }
+    return '<div class="compendium-unlock">' +
+      '<h4 class="compendium-unlock-title">Requirements</h4>' +
+      '<p class="compendium-unlock-text">' + compEsc(item.requirements || item.description) + '</p></div>';
+  }
   if (!item.unlock) return "";
   var h = '<div class="compendium-unlock">' +
     '<h4 class="compendium-unlock-title">How to unlock</h4>' +
@@ -980,15 +1228,22 @@ function compUnlockHtml(item) {
 }
 
 function compBuildFilters() {
-  var dlcs = DLC_ORDER.filter(function (dlc) {
-    return compItems.some(function (i) { return i.introduced === dlc; });
-  });
+  var cfg = compSectionCfg();
+  if (compIsUnlocksHub()) {
+    compFiltersEl.innerHTML = "";
+    compSortSel.innerHTML = '<option value="id">Sort by ID</option><option value="alpha">Alphabetical</option>';
+    compSortSel.value = compSort;
+    return;
+  }
 
   var typeChips = [
     { value: "all", label: "All" },
     { value: "active", label: "Actives" },
     { value: "passive", label: "Passives" }
   ];
+  var dlcs = DLC_ORDER.filter(function (dlc) {
+    return compItems.some(function (i) { return i.introduced === dlc; });
+  });
   var dlcChips = [{ value: "all", label: "All DLCs" }].concat(
     dlcs.map(function (d) { return { value: d, label: d }; })
   );
@@ -998,13 +1253,7 @@ function compBuildFilters() {
       return { value: String(v), label: "Q" + v + " (" + count + ")" };
     })
   );
-  var poolMain = compSortPools(compPools).filter(function (p) { return POOL_MAIN.indexOf(p) !== -1; });
-  var poolOther = compPools.filter(function (p) { return POOL_MAIN.indexOf(p) === -1; });
-  var poolMainChips = poolMain.map(function (p) {
-    var count = compItems.filter(function (i) { return i.pools && i.pools.indexOf(p) !== -1; }).length;
-    return { value: p, label: p + " (" + count + ")" };
-  });
-  var poolOtherChips = poolOther.map(function (p) {
+  var poolAll = compSortPools(compPools).map(function (p) {
     var count = compItems.filter(function (i) { return i.pools && i.pools.indexOf(p) !== -1; }).length;
     return { value: p, label: p + " (" + count + ")" };
   });
@@ -1019,23 +1268,21 @@ function compBuildFilters() {
   function poolGroup() {
     return '<div class="compendium-chipgroup compendium-poolgroup" data-group="Pool">' +
       '<span class="compendium-chiplabel">Pool</span>' +
-      poolMainChips.map(function (c) {
-        return '<button class="compendium-chip' + (compFilterPool === c.value ? " active" : "") + '" data-value="' + c.value + '">' + c.label + '</button>';
-      }).join("") +
       '<select class="compendium-sort compendium-poolselect" id="compendiumPoolSelect">' +
-      '<option value="all">More pools…</option>' +
-      poolOtherChips.map(function (c) {
+      '<option value="all">All pools</option>' +
+      poolAll.map(function (c) {
         return '<option value="' + c.value + '"' + (compFilterPool === c.value ? " selected" : "") + '>' + c.label + '</option>';
       }).join("") +
       '</select>' +
       '</div>';
   }
 
-  compFiltersEl.innerHTML =
-    chipGroup("Type", typeChips, compFilterType, "type") +
-    chipGroup("DLC", dlcChips, compFilterDlc, "dlc") +
-    chipGroup("Quality", qualityChips, compFilterQuality, "quality") +
-    poolGroup();
+  var html = "";
+  if (cfg.hasType) html += chipGroup("Type", typeChips, compFilterType, "type");
+  if (cfg.hasDLC) html += chipGroup("DLC", dlcChips, compFilterDlc, "dlc");
+  if (cfg.hasQuality) html += chipGroup("Quality", qualityChips, compFilterQuality, "quality");
+  if (cfg.hasPools) html += poolGroup();
+  compFiltersEl.innerHTML = html || '<div class="compendium-chipgroup"></div>';
 
   compFiltersEl.querySelectorAll(".compendium-chip").forEach(function (chip) {
     var group = chip.closest(".compendium-chipgroup").getAttribute("data-group");
@@ -1044,11 +1291,7 @@ function compBuildFilters() {
       if (group === "Type") compFilterType = v;
       else if (group === "DLC") compFilterDlc = v;
       else if (group === "Quality") compFilterQuality = v;
-      else if (group === "Pool") {
-        compFilterPool = compFilterPool === v ? "all" : v;
-        var sel = document.getElementById("compendiumPoolSelect");
-        if (sel) sel.value = compFilterPool === "all" || POOL_MAIN.indexOf(compFilterPool) !== -1 ? "all" : compFilterPool;
-      }
+      else if (group === "Pool") compFilterPool = compFilterPool === v ? "all" : v;
       compBuildFilters();
       compRender();
     });
@@ -1062,6 +1305,12 @@ function compBuildFilters() {
       compRender();
     });
   }
+
+  var sortHtml = '';
+  if (cfg.hasQuality) sortHtml = '<option value="id">Sort by ID</option><option value="alpha">Alphabetical</option><option value="quality">Quality (4 → 0)</option>';
+  else sortHtml = '<option value="id">Sort by ID</option><option value="alpha">Alphabetical</option>';
+  compSortSel.innerHTML = sortHtml;
+  compSortSel.value = compSort;
 }
 
 compSearch.addEventListener("input", function () {
@@ -1074,7 +1323,25 @@ compSortSel.addEventListener("change", function () {
   compRender();
 });
 
+compTabs.addEventListener("click", function (e) {
+  var tab = e.target.closest(".compendium-tab");
+  if (!tab) return;
+  compSetSection(tab.getAttribute("data-section"));
+});
+
+var compBackBtn = document.getElementById("compendiumBack");
+if (compBackBtn) {
+  compBackBtn.addEventListener("click", function () {
+    compOpenUnlocksHub();
+  });
+}
+
 compList.addEventListener("click", function (e) {
+  var tile = e.target.closest(".compendium-hub-tile");
+  if (tile) {
+    compOpenUnlockCat(tile.getAttribute("data-cat"));
+    return;
+  }
   var card = e.target.closest(".compendium-card");
   if (!card) return;
   compSelectedKey = card.getAttribute("data-key");
@@ -1092,6 +1359,7 @@ function compInit() {
     (i.pools || []).forEach(function (p) { poolSet[p] = true; });
   });
   compPools = Object.keys(poolSet).sort();
+  compRenderTabs();
   compBuildFilters();
   compRender();
 }

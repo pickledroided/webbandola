@@ -183,8 +183,11 @@
       <div class="closebutton" id="compendiumclose"></div>
     </div>
     <div class="compendium-app">
-      <div class="compendium-main">
+      <div class="compendium-tabs" id="compendiumTabs"></div>
+      <div class="compendium-flex">
+        <div class="compendium-main">
         <div class="compendium-toolbar">
+          <button class="compendium-back" id="compendiumBack" style="display:none">← Back</button>
           <input class="compendium-search" id="compendiumSearch" type="text" placeholder="Search by name or quotes...">
           <select class="compendium-sort" id="compendiumSort">
             <option value="id">Sort by ID</option>
@@ -194,14 +197,19 @@
         </div>
         <div class="compendium-filters" id="compendiumFilters"></div>
         <div class="compendium-list" id="compendiumList"></div>
-      </div>
-      <div class="compendium-detail" id="compendiumDetail">
-        <div class="compendium-detail-empty">Select an item</div>
+        </div>
+        <div class="compendium-detail" id="compendiumDetail">
+          <div class="compendium-detail-empty">Select an item</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="data/items.js"></script>
+<script src="data/items.js"></script>
+    <script src="data/trinkets.js"></script>
+    <script src="data/unlocks.js"></script>
+    <script src="data/characters.js"></script>
+    <script src="data/challenges.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
