@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+﻿import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { introducedIn, dlcNames } from "./dlc.mjs";
@@ -18,106 +18,106 @@ const characters = loadData("characters.js", "window.ISAAC_CHARACTERS = ");
 const items = loadData("items.js", "window.ISAAC_ITEMS = ");
 
 const LOCATIONS = {
-  "???": "The Chest, il piano finale raggiunto con The Polaroid dopo Isaac.",
-  "Baby Plum": "Piano 1 (Downpour/Dross), boss optionale.",
-  "Big Horn": "Piano 2 (Caves/Flooded Caves), boss optionale.",
-  "Blastocyst": "Piano 4 (Womb/Scarred Womb), boss optionale.",
-  "Boss Rush": "Porta temporizzata in Chapter 3: sconfiggi Mom entro 20 minuti.",
-  "C.H.A.D.": "Piano 2 (Caves/Flooded Caves), boss optionale.",
-  "Carrion Queen": "Piano 2 (Catacombs), boss optionale.",
-  "Chimera": "Corpse, boss optionale.",
-  "Chub": "Piano 2 (Caves), boss optionale.",
-  "Clog": "Piano 1 (Dross), boss optionale.",
-  "Colostomia": "Piano 1 (Dross), boss optionale.",
-  "Conquest": "Piano 4 (Womb/Scarred Womb), compare quando si combatte la morte.",
-  "Daddy Long Legs": "Piano 4 (Womb/Utero), boss optionale.",
-  "Dangle": "Piano 1 (Basement), boss optionale.",
-  "Dark One": "Piano 2 (Catacombs), boss optionale.",
-  "Death": "Piano 4 (Womb/Utero), uno dei quattro cavalieri.",
-  "Delirium": "The Void: raggiungibile tramite il portale che compare dopo i boss finali.",
-  "Dingle": "Piano 1 (Basement), boss optionale.",
-  "Dogma": "Home, prima della Mother.",
-  "Famine": "Piano 1 (Basement/Cellar/Burning Basement), uno dei quattro cavalieri.",
-  "Fistula": "Piano 1 (Cellar), boss optionale.",
-  "Gemini": "Piano 1 (Basement), boss optionale.",
-  "Gish": "Piano 3 (Depths/Dank Depths), boss optionale.",
-  "Great Gideon": "Piano 2 (Ashpit/Mines), boss optionale.",
-  "Gurdy": "Piano 2 (Caves), boss optionale.",
-  "Gurdy Jr.": "Piano 2 (Caves/Catacombs), boss optionale.",
-  "Gurglings": "Piano 1 (Basement), boss optionale.",
-  "Headless Horseman": "Piano 2 (Caves/Flooded Caves), boss optionale.",
-  "Hornfel": "Piano 2 (Mines), boss optionale.",
-  "Hush": "Piano ???: sconfiggi Mom's Heart o It Lives! entro 30 minuti.",
-  "Isaac": "Cathedral, il piano finale raggiunto con The Polaroid.",
-  "It Lives!": "Piano 4: sconfiggi Mom's Heart 11 volte.",
-  "Krampus": "Devil Room, dopo aver colpito il Devil Beggar in Devil Room.",
-  "Larry Jr.": "Piano 1 (Basement), boss optionale.",
-  "Lil Blub": "Piano 1 (Downpour/Dross), boss optionale.",
-  "Little Horn": "Piano 1 (Basement), boss optionale.",
-  "Loki": "Piano 3 (Necropolis), boss optionale.",
-  "Lokii": "Piano 4 (Womb/Utero), boss optionale.",
-  "Mama Gurdy": "Piano 4 (Womb/Utero), boss optionale.",
-  "Mask of Infamy": "Piano 3 (Necropolis), boss optionale.",
-  "Mega Fatty": "Piano 2 (Caves), boss optionale.",
-  "Mega Maw": "Piano 2 (Caves), boss optionale.",
-  "Mega Satan": "Chest/Dark Room: raccogli due Key Piece e apri la Golden Gate.",
-  "Min-Min": "Piano 1 (Downpour), boss optionale.",
-  "Mom": "Piano 3 (Depths/Necropolis), la madre di Isaac.",
-  "Mom's Heart": "Piano 4 (Womb/Utero), dopo aver sconfitto Mom.",
-  "Monstro": "Piano 1 (Basement), boss optionale.",
-  "Monstro II": "Piano 3 (Depths/Dank Depths), boss optionale.",
-  "Mother": "Corpse: prosegui dopo Dogma nella Home per raggiungerla.",
-  "Mr. Fred": "Piano 4 (Utero), boss optionale.",
-  "Peep": "Piano 2 (Caves/Catacombs), boss optionale.",
-  "Pestilence": "Piano 2 (Caves/Catacombs), uno dei quattro cavalieri.",
-  "Pin": "Piano 1 (Cellar), boss optionale.",
-  "Polycephalus": "Piano 2 (Catacombs), boss optionale.",
-  "Rag Man": "Piano 1 (Basement), boss optionale.",
-  "Rag Mega": "Piano 2 (Catacombs/Flooded Caves), boss optionale.",
-  "Reap Creep": "Piano 2 (Mines), boss optionale.",
-  "Rotgut": "Corpse, boss optionale.",
-  "Satan": "Sheol, il piano finale raggiunto con The Negative.",
-  "Scolex": "Piano 4 (Womb), boss optionale.",
-  "Singe": "Piano 2 (Ashpit), boss optionale.",
-  "Sisters Vis": "Piano 4 (Womb/Utero/Scarred Womb), boss optionale.",
-  "Steven": "Piano 1 (Basement), boss optionale.",
-  "Teratoma": "Piano 4 (Womb/Scarred Womb), boss optionale.",
-  "The Adversary": "Piano 3 (Depths/Necropolis), boss optionale.",
-  "The Beast": "Home: la battaglia finale dopo la Mother.",
-  "The Bloat": "Piano 4 (Womb/Scarred Womb), boss optionale.",
-  "The Cage": "Piano 3 (Depths), boss optionale.",
-  "The Duke of Flies": "Piano 1 (Basement/Cellar/Burning Basement), boss optionale.",
-  "The Fallen": "Piano 1/3, compare nei Devil Room.",
-  "The Forsaken": "Piano 2 (Catacombs), boss optionale.",
-  "The Frail": "Piano 2 (Catacombs), boss optionale.",
-  "The Gate": "Piano 3 (Depths), boss optionale.",
-  "The Haunt": "Piano 1 (Cellar/Burning Basement), boss optionale.",
-  "The Heretic": "Piano 3 (Mausoleum), boss optionale.",
-  "The Hollow": "Piano 2 (Catacombs), boss optionale.",
-  "The Horny Boys": "Piano 3 (Gehenna), boss optionale.",
-  "The Husk": "Piano 2 (Catacombs), boss optionale.",
-  "The Lamb": "Dark Room, il piano finale raggiunto con The Negative.",
-  "The Matriarch": "Piano 4 (Scarred Womb), boss optionale.",
-  "The Pile": "Piano 2 (Ashpit), boss optionale.",
-  "The Rainmaker": "Piano 1 (Downpour), boss optionale.",
-  "The Scourge": "Corpse, boss optionale.",
-  "The Shell": "Piano 2 (Ashpit), boss optionale.",
-  "The Siren": "Piano 3 (Mausoleum), boss optionale.",
-  "The Stain": "Piano 2 (Caves/Catacombs), boss optionale.",
-  "The Visage": "Piano 3 (Mausoleum), boss optionale.",
-  "The Wretched": "Piano 2 (Catacombs), boss optionale.",
-  "Triachnid": "Piano 4 (Womb/Utero), boss optionale.",
-  "Tuff Twins": "Piano 2 (Mines), boss optionale.",
-  "Turdlet": "Piano 1 (Dross), boss optionale.",
-  "Turdlings": "Piano 1 (Basement), boss optionale.",
-  "Ultra Death": "Home: ultra variant del cavaliere.",
-  "Ultra Famine": "Home: ultra variant del cavaliere.",
-  "Ultra Greed": "Greed Mode: boss finale.",
-  "Ultra Greedier": "Greedier Mode: boss finale.",
-  "Ultra Pestilence": "Home: ultra variant del cavaliere.",
-  "Ultra War": "Home: ultra variant del cavaliere.",
-  "War": "Piano 3 (Depths/Necropolis), uno dei quattro cavalieri.",
-  "Widow": "Piano 1 (Cellar), boss optionale.",
+  "???": "The Chest, the final floor reached with The Polaroid after Isaac.",
+  "Baby Plum": "Floor 1 (Downpour/Dross), optional boss.",
+  "Big Horn": "Floor 2 (Caves/Flooded Caves), optional boss.",
+  "Blastocyst": "Floor 4 (Womb/Scarred Womb), optional boss.",
+  "Boss Rush": "Timed door in Chapter 3: defeat Mom within 20 minutes.",
+  "C.H.A.D.": "Floor 2 (Caves/Flooded Caves), optional boss.",
+  "Carrion Queen": "Floor 2 (Catacombs), optional boss.",
+  "Chimera": "Corpse, optional boss.",
+  "Chub": "Floor 2 (Caves), optional boss.",
+  "Clog": "Floor 1 (Dross), optional boss.",
+  "Colostomia": "Floor 1 (Dross), optional boss.",
+  "Conquest": "Floor 4 (Womb/Scarred Womb), appears when fighting Death.",
+  "Daddy Long Legs": "Floor 4 (Womb/Utero), optional boss.",
+  "Dangle": "Floor 1 (Basement), optional boss.",
+  "Dark One": "Floor 2 (Catacombs), optional boss.",
+  "Death": "Floor 4 (Womb/Utero), one of the four horsemen.",
+  "Delirium": "The Void: reachable through the portal that appears after the final bosses.",
+  "Dingle": "Floor 1 (Basement), optional boss.",
+  "Dogma": "Home, before Mother.",
+  "Famine": "Floor 1 (Basement/Cellar/Burning Basement), one of the four horsemen.",
+  "Fistula": "Floor 1 (Cellar), optional boss.",
+  "Gemini": "Floor 1 (Basement), optional boss.",
+  "Gish": "Floor 3 (Depths/Dank Depths), optional boss.",
+  "Great Gideon": "Floor 2 (Ashpit/Mines), optional boss.",
+  "Gurdy": "Floor 2 (Caves), optional boss.",
+  "Gurdy Jr.": "Floor 2 (Caves/Catacombs), optional boss.",
+  "Gurglings": "Floor 1 (Basement), optional boss.",
+  "Headless Horseman": "Floor 2 (Caves/Flooded Caves), optional boss.",
+  "Hornfel": "Floor 2 (Mines), optional boss.",
+  "Hush": "Floor ???: defeat Mom's Heart or It Lives! within 30 minutes.",
+  "Isaac": "Cathedral, the final floor reached with The Polaroid.",
+  "It Lives!": "Floor 4: defeat Mom's Heart 11 times.",
+  "Krampus": "Devil Room, after striking the Devil Beggar in a Devil Room.",
+  "Larry Jr.": "Floor 1 (Basement), optional boss.",
+  "Lil Blub": "Floor 1 (Downpour/Dross), optional boss.",
+  "Little Horn": "Floor 1 (Basement), optional boss.",
+  "Loki": "Floor 3 (Necropolis), optional boss.",
+  "Lokii": "Floor 4 (Womb/Utero), optional boss.",
+  "Mama Gurdy": "Floor 4 (Womb/Utero), optional boss.",
+  "Mask of Infamy": "Floor 3 (Necropolis), optional boss.",
+  "Mega Fatty": "Floor 2 (Caves), optional boss.",
+  "Mega Maw": "Floor 2 (Caves), optional boss.",
+  "Mega Satan": "Chest/Dark Room: collect two Key Pieces and open the Golden Gate.",
+  "Min-Min": "Floor 1 (Downpour), optional boss.",
+  "Mom": "Floor 3 (Depths/Necropolis), Isaac's mother.",
+  "Mom's Heart": "Floor 4 (Womb/Utero), after defeating Mom.",
+  "Monstro": "Floor 1 (Basement), optional boss.",
+  "Monstro II": "Floor 3 (Depths/Dank Depths), optional boss.",
+  "Mother": "Corpse: continue past Dogma in Home to reach it.",
+  "Mr. Fred": "Floor 4 (Utero), optional boss.",
+  "Peep": "Floor 2 (Caves/Catacombs), optional boss.",
+  "Pestilence": "Floor 2 (Caves/Catacombs), one of the four horsemen.",
+  "Pin": "Floor 1 (Cellar), optional boss.",
+  "Polycephalus": "Floor 2 (Catacombs), optional boss.",
+  "Rag Man": "Floor 1 (Basement), optional boss.",
+  "Rag Mega": "Floor 2 (Catacombs/Flooded Caves), optional boss.",
+  "Reap Creep": "Floor 2 (Mines), optional boss.",
+  "Rotgut": "Corpse, optional boss.",
+  "Satan": "Sheol, the final floor reached with The Negative.",
+  "Scolex": "Floor 4 (Womb), optional boss.",
+  "Singe": "Floor 2 (Ashpit), optional boss.",
+  "Sisters Vis": "Floor 4 (Womb/Utero/Scarred Womb), optional boss.",
+  "Steven": "Floor 1 (Basement), optional boss.",
+  "Teratoma": "Floor 4 (Womb/Scarred Womb), optional boss.",
+  "The Adversary": "Floor 3 (Depths/Necropolis), optional boss.",
+  "The Beast": "Home: the final battle after Mother.",
+  "The Bloat": "Floor 4 (Womb/Scarred Womb), optional boss.",
+  "The Cage": "Floor 3 (Depths), optional boss.",
+  "The Duke of Flies": "Floor 1 (Basement/Cellar/Burning Basement), optional boss.",
+  "The Fallen": "Floor 1/3, appears in the Devil Room.",
+  "The Forsaken": "Floor 2 (Catacombs), optional boss.",
+  "The Frail": "Floor 2 (Catacombs), optional boss.",
+  "The Gate": "Floor 3 (Depths), optional boss.",
+  "The Haunt": "Floor 1 (Cellar/Burning Basement), optional boss.",
+  "The Heretic": "Floor 3 (Mausoleum), optional boss.",
+  "The Hollow": "Floor 2 (Catacombs), optional boss.",
+  "The Horny Boys": "Floor 3 (Gehenna), optional boss.",
+  "The Husk": "Floor 2 (Catacombs), optional boss.",
+  "The Lamb": "Dark Room, the final floor reached with The Negative.",
+  "The Matriarch": "Floor 4 (Scarred Womb), optional boss.",
+  "The Pile": "Floor 2 (Ashpit), optional boss.",
+  "The Rainmaker": "Floor 1 (Downpour), optional boss.",
+  "The Scourge": "Corpse, optional boss.",
+  "The Shell": "Floor 2 (Ashpit), optional boss.",
+  "The Siren": "Floor 3 (Mausoleum), optional boss.",
+  "The Stain": "Floor 2 (Caves/Catacombs), optional boss.",
+  "The Visage": "Floor 3 (Mausoleum), optional boss.",
+  "The Wretched": "Floor 2 (Catacombs), optional boss.",
+  "Triachnid": "Floor 4 (Womb/Utero), optional boss.",
+  "Tuff Twins": "Floor 2 (Mines), optional boss.",
+  "Turdlet": "Floor 1 (Dross), optional boss.",
+  "Turdlings": "Floor 1 (Basement), optional boss.",
+  "Ultra Death": "Home: ultra variant of the horseman.",
+  "Ultra Famine": "Home: ultra variant of the horseman.",
+  "Ultra Greed": "Greed Mode: final boss.",
+  "Ultra Greedier": "Greedier Mode: final boss.",
+  "Ultra Pestilence": "Home: ultra variant of the horseman.",
+  "Ultra War": "Home: ultra variant of the horseman.",
+  "War": "Floor 3 (Depths/Necropolis), one of the four horsemen.",
+  "Widow": "Floor 1 (Cellar), optional boss.",
 };
 
 const WIKI_OVERRIDES = {
@@ -132,7 +132,7 @@ function photoUrl(file) {
   return "https://bindingofisaacrebirth.wiki.gg/images/" + encodeURIComponent(slug);
 }
 
-// --- Raccolta: nome boss -> { icon, ingame, kills: [{char, charIcon, item, itemIcon, dlc}] }
+// --- Collect: boss name -> { icon, ingame, kills: [{char, charIcon, item, itemIcon, dlc}] }
 const bosses = new Map();
 function ensureBoss(name) {
   if (!bosses.has(name)) bosses.set(name, { name, icon: "", ingame: "", dlc: 0, kills: [] });
@@ -173,7 +173,7 @@ if (bosses.has("Krampus")) {
   kb.ingame = kb.ingame || "Boss Krampus ingame.png";
 }
 
-// La foto grande: usa l'ingame se disponibile, altrimenti l'icona
+// The big photo: uses the ingame photo if available, otherwise the icon
 for (const b of bosses.values()) {
   b.photo = photoUrl(b.ingame) || b.icon;
   b.introduced = introducedIn(b.dlc);
@@ -194,10 +194,10 @@ list.sort((a, b) => {
 mkdirSync(DATA_DIR, { recursive: true });
 writeFileSync(join(DATA_DIR, "bosses.js"), "window.ISAAC_BOSSES = " + JSON.stringify(list) + ";\n", "utf8");
 
-console.log("TOTALE BOSS:", list.length);
-console.log("boss con kill:", list.filter((b) => b.kills.length > 0).length);
-console.log("boss senza kill:", list.filter((b) => b.kills.length === 0).length);
-console.log("senza location:", list.filter((b) => !b.location).length);
-console.log("senza foto:", list.filter((b) => !b.photo).length);
-console.log("senza icona:", list.filter((b) => !b.icon).length);
-console.log("scritto: data/bosses.js");
+console.log("TOTAL BOSSES:", list.length);
+console.log("bosses with kills:", list.filter((b) => b.kills.length > 0).length);
+console.log("bosses without kills:", list.filter((b) => b.kills.length === 0).length);
+console.log("without location:", list.filter((b) => !b.location).length);
+console.log("without photo:", list.filter((b) => !b.photo).length);
+console.log("without icon:", list.filter((b) => !b.icon).length);
+console.log("written: data/bosses.js");

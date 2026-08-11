@@ -1,4 +1,4 @@
-* {
+﻿* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -26,14 +26,20 @@
 
 body {
   height: 100vh;
-  background: linear-gradient(rgba(14, 10, 8, 0.7), rgba(14, 10, 8, 0.7)), var(--wallpaper);
-  background-size: cover;
+  background-color: var(--ui-bg);
+  background: linear-gradient(rgba(14, 10, 8, 0.45), rgba(14, 10, 8, 0.45)), var(--wallpaper);
+  background-size: calc(100% + 90px) 100%;
   background-position: center;
+  background-repeat: no-repeat;
   image-rendering: pixelated;
   font-family: 'Inter', sans-serif;
   overflow: hidden;
   color: var(--ui-text);
   -webkit-font-smoothing: antialiased;
+}
+
+[data-wall="sheol"] body {
+  background-image: linear-gradient(rgba(3, 2, 1, 0.55), rgba(3, 2, 1, 0.55)), var(--wallpaper);
 }
 
 input,
@@ -2031,9 +2037,11 @@ button {
 .mirror-wallpaper {
   position: absolute;
   inset: 0;
-  background: linear-gradient(rgba(14, 10, 8, 0.5), rgba(14, 10, 8, 0.5)), var(--wallpaper);
-  background-size: cover;
+  background-color: var(--ui-bg);
+  background: linear-gradient(rgba(14, 10, 8, 0.35), rgba(14, 10, 8, 0.35)), var(--wallpaper);
+  background-size: calc(100% + 90px) 100%;
   background-position: center;
+  background-repeat: no-repeat;
 }
 
 .mirror-window {
@@ -2114,6 +2122,7 @@ button {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding: 2px 6px 4px 2px;
   display: none;
   flex-direction: column;
   gap: 10px;

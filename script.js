@@ -736,7 +736,7 @@ function addToSideBar(index) {
   newDiv.innerHTML = `
     <div class="sidebar-item-head">
       <p class="item-title">${note.title}</p>
-      <span class="item-trash" title="Elimina nota">🗑</span>
+      <span class="item-trash" title="Delete note">🗑</span>
     </div>
     <p class="item-date">${note.date}</p>
   `;
@@ -1142,10 +1142,10 @@ function compRenderDetail() {
         ? '<img class="compendium-boss-item-icon" src="' + compEsc(k.itemIcon) + '" alt="">'
         : '<span class="compendium-unlock-noicon">?</span>';
       return '<div class="compendium-boss-row">' +
-        '<a class="compendium-boss-side" href="' + compEsc(charWiki) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(k.char) + '">' +
+        '<a class="compendium-boss-side" href="' + compEsc(charWiki) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(k.char) + '">' +
         cIcon +         '<span class="compendium-boss-name">' + compEsc(k.char) + '</span></a>' +
         '<span class="compendium-boss-arrow">\u2192</span>' +
-        '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(k.item)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(k.item) + '">' +
+        '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(k.item)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(k.item) + '">' +
         itemIcon + '<span class="compendium-boss-item-name">' + compEsc(k.item) + '</span></a>' +
         '</div>';
     }).join("");
@@ -1270,11 +1270,11 @@ function compUnlockHtml(item) {
               ? '<img class="compendium-boss-item-icon" src="' + compEsc(bu.itemIcon) + '" alt="">'
               : '<span class="compendium-unlock-noicon">?</span>';
             return '<div class="compendium-boss-row">' +
-              '<a class="compendium-boss-side" href="' + compEsc(compItemWiki(bu.boss.name)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(bu.boss.name) + '">' +
+              '<a class="compendium-boss-side" href="' + compEsc(compItemWiki(bu.boss.name)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(bu.boss.name) + '">' +
               bossIcon + '<span class="compendium-boss-name">' + compEsc(bu.boss.name) + '</span>' +
               '</a>' +
               '<span class="compendium-boss-arrow">\u2192</span>' +
-              '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(bu.item)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(bu.item) + '">' +
+              '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(bu.item)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(bu.item) + '">' +
               itemIcon + '<span class="compendium-boss-item-name">' + compEsc(bu.item) + '</span>' +
               '</a>' +
               '</div>';
@@ -1512,14 +1512,14 @@ function galleryOpenViewer(index) {
     galleryViewer = document.createElement("div");
     galleryViewer.className = "gallery-viewer";
     galleryViewer.innerHTML =
-      '<button class="gallery-viewer-back" title="Torna alla griglia">' +
+      '<button class="gallery-viewer-back" title="Back to grid">' +
         '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z" stroke="none"/></svg>' +
       '</button>' +
-      '<button class="gallery-viewer-arrow prev" title="Precedente">' +
+      '<button class="gallery-viewer-arrow prev" title="Previous">' +
         '<svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" stroke="none"/></svg>' +
       '</button>' +
       '<img class="gallery-viewer-img" alt="">' +
-      '<button class="gallery-viewer-arrow next" title="Successiva">' +
+      '<button class="gallery-viewer-arrow next" title="Next">' +
         '<svg viewBox="0 0 24 24"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z" stroke="none"/></svg>' +
       '</button>';
     galleryGrid.closest(".window").appendChild(galleryViewer);
@@ -1556,7 +1556,9 @@ var themesList = typeof window.ISAAC_THEMES !== "undefined" && window.ISAAC_THEM
   ? window.ISAAC_THEMES
   : [];
 var wallpaperList = typeof window.ISAAC_WALLPAPERS !== "undefined" && window.ISAAC_WALLPAPERS
-  ? window.ISAAC_WALLPAPERS
+  ? window.ISAAC_WALLPAPERS.slice().sort(function (a, b) {
+      return (b.file === "default-wall.png" ? 1 : 0) - (a.file === "default-wall.png" ? 1 : 0);
+    })
   : [];
 
 var themesColors = document.querySelector("#themesColors");
@@ -1596,6 +1598,7 @@ function applyWallpaper(file) {
     return;
   }
   document.documentElement.style.setProperty("--wallpaper", 'url("' + themesWallpaperSrc(file).replace(/"/g, "%22") + '")');
+  document.documentElement.setAttribute("data-wall", file === "default-wall.png" ? "sheol" : "");
 }
 
 function hexToRgb(hex) {
@@ -1687,17 +1690,17 @@ function sliderFromColors(colors) {
 function themesBuildSliders() {
   themesSliders.innerHTML =
     '<div class="slider-row">' +
-      '<span class="slider-label">Tonalità</span>' +
+      '<span class="slider-label">Hue</span>' +
       '<input type="range" min="0" max="360" value="0" data-slider="hue">' +
       '<span class="slider-value" data-slider-val="hue">0</span>' +
     '</div>' +
     '<div class="slider-row">' +
-      '<span class="slider-label">Saturazione</span>' +
+      '<span class="slider-label">Saturation</span>' +
       '<input type="range" min="0" max="100" value="0" data-slider="sat">' +
       '<span class="slider-value" data-slider-val="sat">0</span>' +
     '</div>' +
     '<div class="slider-row">' +
-      '<span class="slider-label">Luminosità</span>' +
+      '<span class="slider-label">Lightness</span>' +
       '<input type="range" min="0" max="100" value="0" data-slider="light">' +
       '<span class="slider-value" data-slider-val="light">0</span>' +
     '</div>';
@@ -1723,17 +1726,17 @@ function themesBuildBgSliders() {
   if (!themesBgSliders) return;
   themesBgSliders.innerHTML =
     '<div class="slider-row">' +
-      '<span class="slider-label">Tonalità</span>' +
+      '<span class="slider-label">Hue</span>' +
       '<input type="range" min="0" max="360" value="0" data-bgslider="hue">' +
       '<span class="slider-value" data-bgslider-val="hue">0</span>' +
     '</div>' +
     '<div class="slider-row">' +
-      '<span class="slider-label">Saturazione</span>' +
+      '<span class="slider-label">Saturation</span>' +
       '<input type="range" min="0" max="100" value="0" data-bgslider="sat">' +
       '<span class="slider-value" data-bgslider-val="sat">0</span>' +
     '</div>' +
     '<div class="slider-row">' +
-      '<span class="slider-label">Luminosità</span>' +
+      '<span class="slider-label">Lightness</span>' +
       '<input type="range" min="0" max="100" value="0" data-bgslider="light">' +
       '<span class="slider-value" data-bgslider-val="light">0</span>' +
     '</div>';
@@ -1797,7 +1800,7 @@ function themeRenderChips() {
           '<span class="theme-name">' + compEsc(t.name) + '</span>' +
           '</button>';
       }).join("")
-    : '<span style="font-size:12px;color:rgba(232,213,168,0.4);">Nessun tema salvato</span>';
+    : '<span style="font-size:12px;color:rgba(232,213,168,0.4);">No saved themes</span>';
 
   themesPresetChips.querySelectorAll(".theme-card").forEach(function (card) {
     card.addEventListener("click", function () {

@@ -1,4 +1,4 @@
-import { readdirSync, writeFileSync, statSync, mkdirSync } from "node:fs";
+﻿import { readdirSync, writeFileSync, statSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,5 +41,5 @@ for (const spec of SPECS) {
   entries.sort((a, b) => a.file.localeCompare(b.file));
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(join(DATA_DIR, spec.dir + ".js"), "window." + spec.var + " = " + JSON.stringify(entries) + ";\n", "utf8");
-  console.log("TOTALE " + spec.dir.toUpperCase() + ":", entries.length);
+  console.log("TOTAL " + spec.dir.toUpperCase() + ":", entries.length);
 }

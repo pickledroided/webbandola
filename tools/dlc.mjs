@@ -23,5 +23,5 @@ export function introducedIn(mask) {
 
 export function dlcNames(mask) {
   const list = dlcOf(mask);
-  return list.length === DLC_BITS.length ? "Tutte le DLC" : list.join(" + ");
+  return list.length === DLC_BITS.length ? "All DLC" : list.join(" + ");
 }

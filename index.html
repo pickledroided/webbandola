@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,7 +54,7 @@
   <div class="window" id="welcome">
     <div class="windowheader" id="welcomeheader">
       <span class="window-title">Welcome</span>
-      <div class="minbutton" id="welcomemin" title="Minimizza"></div>
+      <div class="minbutton" id="welcomemin" title="Minimize"></div>
       <div class="closebutton" id="welcomeclose"></div>
     </div>
     <div class="window-body">
@@ -69,7 +69,7 @@
   <div class="window" id="notes" style="display: none;">
     <div class="windowheader" id="notesheader">
       <span class="window-title">Notes</span>
-      <div class="minbutton" id="notesmin" title="Minimizza"></div>
+      <div class="minbutton" id="notesmin" title="Minimize"></div>
       <div class="closebutton" id="notesclose"></div>
     </div>
     <div class="notes-app">
@@ -83,7 +83,7 @@
   <div class="window" id="contacts" style="display: none;">
     <div class="windowheader" id="contactsheader">
       <span class="window-title">Find me</span>
-      <div class="minbutton" id="contactsmin" title="Minimizza"></div>
+      <div class="minbutton" id="contactsmin" title="Minimize"></div>
       <div class="closebutton" id="contactsclose"></div>
     </div>
     <div class="contacts-app">
@@ -121,16 +121,16 @@
   <div class="window" id="browser" style="display: none;">
     <div class="windowheader" id="browserheader">
       <span class="window-title">Browser</span>
-      <div class="minbutton" id="browsermin" title="Minimizza"></div>
+      <div class="minbutton" id="browsermin" title="Minimize"></div>
       <div class="closebutton" id="browserclose"></div>
     </div>
     <div class="browser-app">
       <div class="browser-toolbar">
-        <button class="browser-btn" id="browserBack" title="Indietro">←</button>
-        <button class="browser-btn" id="browserForward" title="Avanti">→</button>
+        <button class="browser-btn" id="browserBack" title="Back">←</button>
+        <button class="browser-btn" id="browserForward" title="Forward">→</button>
         <button class="browser-btn" id="browserHome" title="Home">⌂</button>
-        <button class="browser-btn" id="browserReload" title="Ricarica">⟳</button>
-        <input class="browser-url" id="browserUrl" type="text" placeholder="Inserisci un URL...">
+        <button class="browser-btn" id="browserReload" title="Reload">⟳</button>
+        <input class="browser-url" id="browserUrl" type="text" placeholder="Enter a URL...">
         <button class="browser-btn browser-go" id="browserGo">Go</button>
       </div>
       <div class="browser-home" id="browserHomePage">
@@ -154,7 +154,7 @@
   <div class="window" id="calculator" style="display: none;">
     <div class="windowheader" id="calculatorheader">
       <span class="window-title">Calculator</span>
-      <div class="minbutton" id="calculatormin" title="Minimizza"></div>
+      <div class="minbutton" id="calculatormin" title="Minimize"></div>
       <div class="closebutton" id="calculatorclose"></div>
     </div>
     <div class="calc-app">
@@ -187,7 +187,7 @@
   <div class="window" id="compendium" style="display: none;">
     <div class="windowheader" id="compendiumheader">
       <span class="window-title">Compendium</span>
-      <div class="minbutton" id="compendiummin" title="Minimizza"></div>
+      <div class="minbutton" id="compendiummin" title="Minimize"></div>
       <div class="closebutton" id="compendiumclose"></div>
     </div>
     <div class="compendium-app">
@@ -216,7 +216,7 @@
 <div class="window" id="gallery" style="display: none;">
     <div class="windowheader" id="galleryheader">
       <span class="window-title">Gallery</span>
-      <div class="minbutton" id="gallerymin" title="Minimizza"></div>
+      <div class="minbutton" id="gallerymin" title="Minimize"></div>
       <div class="closebutton" id="galleryclose"></div>
     </div>
     <div class="gallery-app">
@@ -227,7 +227,7 @@
   <div class="window" id="themes" style="display: none;">
     <div class="windowheader" id="themesheader">
       <span class="window-title">Themes</span>
-      <div class="minbutton" id="themesmin" title="Minimizza"></div>
+      <div class="minbutton" id="themesmin" title="Minimize"></div>
       <div class="closebutton" id="themesclose"></div>
     </div>
     <div class="themes-app">
@@ -237,7 +237,7 @@
       </div>
       <div class="themes-flex">
         <div class="themes-mirror">
-          <div class="mirror-label">Anteprima</div>
+          <div class="mirror-label">Preview</div>
           <div class="mirror-stage">
             <div class="mirror-wallpaper"></div>
             <div class="mirror-window">
@@ -250,26 +250,26 @@
         </div>
         <div class="themes-col">
           <div class="themes-content visible" id="themesColors">
-            <div class="themes-section-label">Presa valore canonica</div>
+            <div class="themes-section-label">Preset themes</div>
             <div class="themes-chips" id="themesPresetChips"></div>
-            <div class="themes-section-label">Regola il colore</div>
+            <div class="themes-section-label">Adjust colors</div>
             <div class="themes-sliders" id="themesSliders"></div>
-            <div class="themes-section-label">Sfondo finestre</div>
+            <div class="themes-section-label">Window background</div>
             <div class="themes-sliders" id="themesBgSliders"></div>
             <div class="themes-actions">
-              <button class="themes-action" id="themesRandom" title="Tema casuale">🎲 Random</button>
-              <button class="themes-action" id="themesReset" title="Torna all'Isaac">🗑 Reset</button>
-              <button class="themes-action primary" id="themesSaveBtn" title="Salva tema">Salva</button>
+              <button class="themes-action" id="themesRandom" title="Random theme">🎲 Random</button>
+              <button class="themes-action" id="themesReset" title="Back to Isaac">🗑 Reset</button>
+              <button class="themes-action primary" id="themesSaveBtn" title="Save theme">Save</button>
             </div>
             <div class="themes-savebox" id="themesSaveBox" style="display:none;">
-              <input class="themes-name" id="themesName" type="text" placeholder="Nome del tema..." maxlength="24">
-              <button class="themes-action primary" id="themesConfirmSave">Salva</button>
+              <input class="themes-name" id="themesName" type="text" placeholder="Theme name..." maxlength="24">
+              <button class="themes-action primary" id="themesConfirmSave">Save</button>
             </div>
-            <div class="themes-section-label">Salvati</div>
+            <div class="themes-section-label">Saved</div>
             <div class="themes-chips" id="themesSavedChips"></div>
           </div>
           <div class="themes-content hidden" id="themesWallpaper">
-            <div class="themes-section-label">Sfondo</div>
+            <div class="themes-section-label">Background</div>
             <div class="themes-grid" id="themesWallpaperGrid"></div>
           </div>
         </div>

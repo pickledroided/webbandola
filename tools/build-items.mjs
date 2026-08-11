@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from "node:fs";
+﻿import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DLC_BITS, introducedIn, dlcNames } from "./dlc.mjs";
@@ -27,7 +27,7 @@ async function cargoQuery(params, retries) {
   const res = await fetch(url);
   if (res.status === 429 && retries < MAX_RETRIES) {
     const wait = 1500 * (retries + 1);
-    console.error("rate limit, retry in", wait + "ms");
+    console.error("rate limit, retrying in", wait + "ms");
     await sleep(wait);
     return cargoQuery(params, retries + 1);
   }
@@ -94,7 +94,7 @@ async function resolveImageUrls(files) {
       }
       if (found === 0 && tries < MAX_RETRIES) {
         tries++;
-        console.error("chunk vuoto, retry in", 2000 * tries + "ms");
+        console.error("empty chunk, retrying in", 2000 * tries + "ms");
         await sleep(2000 * tries);
         continue;
       }
@@ -283,7 +283,7 @@ const challengeRows = await fetchTable(
   "challenge.alias=alias,challenge.number=number,challenge.goal=goal,challenge.unlocks=unlocks,challenge.unlocked_by=unlockedBy,challenge.dlc=dlc"
 );
 
-// --- Entity parser per req (boss + character, con nome visualizzato) ---
+// --- Entity parser for req (boss + character, with displayed name) ---
 function normalizeKey(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -318,7 +318,7 @@ const CHAR_FILE_RE = /^Character .*? icon\.(?:png|jpg)$/i;
 
 const items = [];
 
-// --- Pack per item (chiave: item.nome lowercase; per ogni pool tieni il più alto) ---
+// --- Pack per item (key: item.name lowercase; for each pool keep the highest) ---
 const poolByItem = {};
 for (const r of poolRows) {
   const itemName = (r.collectible || "").toLowerCase();
@@ -470,7 +470,7 @@ for (const [, a] of uniqueAch) {
 unlocks.sort((a, b) => (a.id === null) - (b.id === null) || a.id - b.id);
 
 // --- Characters ---
-const achByNorm = new Map(); // chiave normalizzata (alias o nome) -> achievement
+const achByNorm = new Map(); // normalized key (alias or name) -> achievement
 for (const [, a] of uniqueAch) {
   const keys = [a.key, a.name, a.name !== a.key ? a.alias : ""].filter(Boolean);
   for (const k of keys) {
@@ -582,7 +582,7 @@ for (const c of characters) {
   c.bossUnlocks = out;
 }
 
-// Mom's Heart e It Lives! sbloccano gli stessi item per un personaggio -> tieni solo It Lives!
+// Mom's Heart and It Lives! unlock the same items for a character -> keep only It Lives!
 for (const c of characters) {
   const mh = new Set(c.bossUnlocks.filter((b) => b.boss.name === "Mom's Heart").map((b) => b.item));
   const il = new Set(c.bossUnlocks.filter((b) => b.boss.name === "It Lives!").map((b) => b.item));
@@ -644,37 +644,37 @@ writeFileSync(join(DATA_DIR, "characters.js"), "window.ISAAC_CHARACTERS = " + JS
 
 writeFileSync(join(DATA_DIR, "challenges.js"), "window.ISAAC_CHALLENGES = " + JSON.stringify(challenges) + ";\n", "utf8");
 
-console.log("TOTALE ITEM:", items.length);
-console.log("con id:", items.filter((i) => i.id !== null).length);
-console.log("senza id:", items.filter((i) => i.id === null).length);
-console.log("attivi:", items.filter((i) => i.active).length);
-console.log("passivi:", items.filter((i) => !i.active).length);
-console.log("senza descrizione:", items.filter((i) => !i.description).length);
-console.log("senza icona:", items.filter((i) => !i.icon).length);
-console.log("senza quote:", items.filter((i) => !i.quote).length);
-console.log("qualità null:", items.filter((i) => i.quality === null).length);
-console.log("per DLC d'introduzione:");
+console.log("TOTAL ITEMS:", items.length);
+console.log("with id:", items.filter((i) => i.id !== null).length);
+console.log("without id:", items.filter((i) => i.id === null).length);
+console.log("active:", items.filter((i) => i.active).length);
+console.log("passive:", items.filter((i) => !i.active).length);
+console.log("without description:", items.filter((i) => !i.description).length);
+console.log("without icon:", items.filter((i) => !i.icon).length);
+console.log("without quote:", items.filter((i) => !i.quote).length);
+console.log("null quality:", items.filter((i) => i.quality === null).length);
+console.log("by introduction DLC:");
 for (const [, name] of DLC_BITS) {
   console.log("  ", name, items.filter((i) => i.introduced === name).length);
 }
-console.log("scritto:", OUT_JS);
-console.log("TOTALE TRINKET:", trinkets.length);
-console.log("trinket senza icona:", trinkets.filter((t) => !t.icon).length);
-console.log("scritto:", OUT_TRINKETS_JS);
-console.log("TOTALE UNLOCK:", unlocks.length);
-console.log("unlock senza icona:", unlocks.filter((u) => !u.icon).length);
-console.log("unlock senza descrizione:", unlocks.filter((u) => !u.description).length);
-console.log("scritto:", OUT_UNLOCKS_JS);
-console.log("TOTALE CHARACTER:", characters.length);
-console.log("character senza icona:", characters.filter((c) => !c.icon).length);
-console.log("character senza requirements:", characters.filter((c) => !c.unlock).length);
-console.log("TOTALE CHALLENGE:", challenges.length);
-console.log("challenge senza icona:", challenges.filter((c) => !c.icon).length);
-console.log("challenge senza requirements:", challenges.filter((c) => !c.requirements).length);
-console.log("con unlock:", withUnlock.length);
-console.log("senza pool:", items.filter((i) => i.pools.length === 0).length);
-console.log("pool distinti:", new Set(items.flatMap((i) => i.pools)).size);
-console.log("unlock senza boss:", withUnlock.filter((i) => i.unlock.bosses.length === 0).length);
-console.log("unlock senza personaggio:", withUnlock.filter((i) => i.unlock.characters.length === 0).length);
-console.log("boss senza icona:", [...bossStats.keys()].filter((b) => portraitMap[b] && !portraitMap[b].icon).join(", ") || "nessuno");
-console.log("personaggi senza icona:", [...charStats.keys()].filter((c) => { const f = "character " + c + " icon.png"; return !charUrls[f] && !charUrls[f.toLowerCase()]; }).join(", ") || "nessuno");
+console.log("written:", OUT_JS);
+console.log("TOTAL TRINKETS:", trinkets.length);
+console.log("trinkets without icon:", trinkets.filter((t) => !t.icon).length);
+console.log("written:", OUT_TRINKETS_JS);
+console.log("TOTAL UNLOCKS:", unlocks.length);
+console.log("unlocks without icon:", unlocks.filter((u) => !u.icon).length);
+console.log("unlocks without description:", unlocks.filter((u) => !u.description).length);
+console.log("written:", OUT_UNLOCKS_JS);
+console.log("TOTAL CHARACTERS:", characters.length);
+console.log("characters without icon:", characters.filter((c) => !c.icon).length);
+console.log("characters without requirements:", characters.filter((c) => !c.unlock).length);
+console.log("TOTAL CHALLENGES:", challenges.length);
+console.log("challenges without icon:", challenges.filter((c) => !c.icon).length);
+console.log("challenges without requirements:", challenges.filter((c) => !c.requirements).length);
+console.log("with unlock:", withUnlock.length);
+console.log("without pool:", items.filter((i) => i.pools.length === 0).length);
+console.log("distinct pools:", new Set(items.flatMap((i) => i.pools)).size);
+console.log("unlocks without boss:", withUnlock.filter((i) => i.unlock.bosses.length === 0).length);
+console.log("unlocks without character:", withUnlock.filter((i) => i.unlock.characters.length === 0).length);
+console.log("bosses without icon:", [...bossStats.keys()].filter((b) => portraitMap[b] && !portraitMap[b].icon).join(", ") || "none");
+console.log("characters without icon:", [...charStats.keys()].filter((c) => { const f = "character " + c + " icon.png"; return !charUrls[f] && !charUrls[f.toLowerCase()]; }).join(", ") || "none");
