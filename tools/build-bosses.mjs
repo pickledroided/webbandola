@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { introducedIn, dlcNames } from "./dlc.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "data");
@@ -125,29 +126,6 @@ const WIKI_OVERRIDES = {
   "Isaac": "Isaac_(Boss)",
 };
 
-const DLC_BITS = [
-  [1, "Rebirth"],
-  [2, "Afterbirth"],
-  [4, "Afterbirth+"],
-  [8, "Repentance"],
-  [16, "Repentance+"],
-];
-
-function introducedIn(mask) {
-  for (const [bit, name] of DLC_BITS) {
-    if ((mask & bit) === bit) return name;
-  }
-  return "Rebirth";
-}
-
-function dlcNames(mask) {
-  const out = [];
-  for (const [bit, name] of DLC_BITS) {
-    if ((mask & bit) === bit) out.push(name);
-  }
-  return out.length === DLC_BITS.length ? "Tutte le DLC" : out.join(" + ");
-}
-
 function photoUrl(file) {
   if (!file) return "";
   const slug = String(file).replace(/ /g, "_");
@@ -214,8 +192,6 @@ list.sort((a, b) => {
 });
 
 mkdirSync(DATA_DIR, { recursive: true });
-const jsonText = JSON.stringify(list, null, 2) + "\n";
-writeFileSync(join(DATA_DIR, "bosses.json"), jsonText, "utf8");
 writeFileSync(join(DATA_DIR, "bosses.js"), "window.ISAAC_BOSSES = " + JSON.stringify(list) + ";\n", "utf8");
 
 console.log("TOTALE BOSS:", list.length);

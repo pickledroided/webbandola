@@ -1,27 +1,17 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DLC_BITS, introducedIn, dlcNames } from "./dlc.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const API = "https://bindingofisaacrebirth.wiki.gg/api.php";
 const DATA_DIR = join(__dirname, "..", "data");
-const OUT_JSON = join(DATA_DIR, "items.json");
 const OUT_JS = join(DATA_DIR, "items.js");
-const OUT_TRINKETS_JSON = join(DATA_DIR, "trinkets.json");
 const OUT_TRINKETS_JS = join(DATA_DIR, "trinkets.js");
-const OUT_UNLOCKS_JSON = join(DATA_DIR, "unlocks.json");
 const OUT_UNLOCKS_JS = join(DATA_DIR, "unlocks.js");
 const PAGE = 500;
 const DELAY_MS = 400;
 const MAX_RETRIES = 8;
-
-const DLC_BITS = [
-  [1, "Rebirth"],
-  [2, "Afterbirth"],
-  [4, "Afterbirth+"],
-  [8, "Repentance"],
-  [16, "Repentance+"],
-];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -137,26 +127,6 @@ function cleanWiki(text) {
     .replace(/\s+([,.;:!])(?![?])/g, "$1")
     .trim();
   return s;
-}
-
-function dlcOf(mask) {
-  const out = [];
-  for (const [bit, name] of DLC_BITS) {
-    if ((mask & bit) === bit) out.push(name);
-  }
-  return out;
-}
-
-function introducedIn(mask) {
-  for (const [bit, name] of DLC_BITS) {
-    if ((mask & bit) === bit) return name;
-  }
-  return "Rebirth";
-}
-
-function dlcNames(mask) {
-  const list = dlcOf(mask);
-  return list.length === DLC_BITS.length ? "Tutte le DLC" : list.join(" + ");
 }
 
 function pickLatest(rows) {
@@ -666,22 +636,12 @@ for (const row of challengeRows) {
 }
 
 mkdirSync(DATA_DIR, { recursive: true });
-const jsonText = JSON.stringify(items, null, 2) + "\n";
-writeFileSync(OUT_JSON, jsonText, "utf8");
 writeFileSync(OUT_JS, "window.ISAAC_ITEMS = " + JSON.stringify(items) + ";\n", "utf8");
-const trinketsJsonText = JSON.stringify(trinkets, null, 2) + "\n";
-writeFileSync(OUT_TRINKETS_JSON, trinketsJsonText, "utf8");
 writeFileSync(OUT_TRINKETS_JS, "window.ISAAC_TRINKETS = " + JSON.stringify(trinkets) + ";\n", "utf8");
-const unlocksJsonText = JSON.stringify(unlocks, null, 2) + "\n";
-writeFileSync(OUT_UNLOCKS_JSON, unlocksJsonText, "utf8");
 writeFileSync(OUT_UNLOCKS_JS, "window.ISAAC_UNLOCKS = " + JSON.stringify(unlocks) + ";\n", "utf8");
 
-const charactersJsonText = JSON.stringify(characters, null, 2) + "\n";
-writeFileSync(join(DATA_DIR, "characters.json"), charactersJsonText, "utf8");
 writeFileSync(join(DATA_DIR, "characters.js"), "window.ISAAC_CHARACTERS = " + JSON.stringify(characters) + ";\n", "utf8");
 
-const challengesJsonText = JSON.stringify(challenges, null, 2) + "\n";
-writeFileSync(join(DATA_DIR, "challenges.json"), challengesJsonText, "utf8");
 writeFileSync(join(DATA_DIR, "challenges.js"), "window.ISAAC_CHALLENGES = " + JSON.stringify(challenges) + ";\n", "utf8");
 
 console.log("TOTALE ITEM:", items.length);
@@ -697,7 +657,6 @@ console.log("per DLC d'introduzione:");
 for (const [, name] of DLC_BITS) {
   console.log("  ", name, items.filter((i) => i.introduced === name).length);
 }
-console.log("scritto:", OUT_JSON);
 console.log("scritto:", OUT_JS);
 console.log("TOTALE TRINKET:", trinkets.length);
 console.log("trinket senza icona:", trinkets.filter((t) => !t.icon).length);

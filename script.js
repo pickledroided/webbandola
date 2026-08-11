@@ -1138,13 +1138,12 @@ function compRenderDetail() {
       var cIcon = k.charIcon
         ? '<img class="compendium-boss-icon" src="' + compEsc(k.charIcon) + '" alt="">'
         : '<span class="compendium-unlock-noicon">?</span>';
-      var cName = /^Tainted\b/i.test(k.char || "") ? k.char : k.char;
       var itemIcon = k.itemIcon
         ? '<img class="compendium-boss-item-icon" src="' + compEsc(k.itemIcon) + '" alt="">'
         : '<span class="compendium-unlock-noicon">?</span>';
       return '<div class="compendium-boss-row">' +
         '<a class="compendium-boss-side" href="' + compEsc(charWiki) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(k.char) + '">' +
-        cIcon + '<span class="compendium-boss-name">' + compEsc(cName) + '</span></a>' +
+        cIcon +         '<span class="compendium-boss-name">' + compEsc(k.char) + '</span></a>' +
         '<span class="compendium-boss-arrow">\u2192</span>' +
         '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(k.item)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(k.item) + '">' +
         itemIcon + '<span class="compendium-boss-item-name">' + compEsc(k.item) + '</span></a>' +
@@ -1270,10 +1269,8 @@ function compUnlockHtml(item) {
             var itemIcon = bu.itemIcon
               ? '<img class="compendium-boss-item-icon" src="' + compEsc(bu.itemIcon) + '" alt="">'
               : '<span class="compendium-unlock-noicon">?</span>';
-            var bossWiki = "https://bindingofisaacrebirth.wiki.gg/wiki/" +
-              encodeURIComponent(String(bu.boss.name || "").replace(/ /g, "_"));
             return '<div class="compendium-boss-row">' +
-              '<a class="compendium-boss-side" href="' + compEsc(bossWiki) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(bu.boss.name) + '">' +
+              '<a class="compendium-boss-side" href="' + compEsc(compItemWiki(bu.boss.name)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(bu.boss.name) + '">' +
               bossIcon + '<span class="compendium-boss-name">' + compEsc(bu.boss.name) + '</span>' +
               '</a>' +
               '<span class="compendium-boss-arrow">\u2192</span>' +
@@ -1495,23 +1492,14 @@ function galleryPhotoSrc(file) {
 function galleryRender() {
   if (!galleryGrid) return;
   if (galleryPhotos.length === 0) {
-    galleryGrid.innerHTML = '<div class="gallery-empty">No photos yet.\n  Put images in the photos/ folder and run:\n  node tools/build-photos.mjs</div>';
+    galleryGrid.innerHTML = '<div class="gallery-empty">No photos yet.\n  Put images in the photos/ folder and run:\n  node tools/build-images.mjs photos</div>';
     return;
   }
   galleryGrid.innerHTML = galleryPhotos.map(function (p, i) {
     return '<button class="gallery-tile" data-index="' + i + '" title="' + p.name + '">' +
-      '<img class="gallery-tile-img" src="' + galleryPhotoSrc(p.file) + '" alt="' + galleryEsc(p.name) + '" loading="lazy">' +
+      '<img class="gallery-tile-img" src="' + galleryPhotoSrc(p.file) + '" alt="' + compEsc(p.name) + '" loading="lazy">' +
       '</button>';
   }).join("");
-}
-
-function galleryEsc(s) {
-  return String(s == null ? "" : s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 var galleryViewer = null;
@@ -1587,9 +1575,9 @@ var themesReset = document.querySelector("#themesReset");
 var themesWallpaperGrid = document.querySelector("#themesWallpaperGrid");
 
 var currentColors = null;
-var currentSource = "";
 var customBgKey = "isaacos_custom_bg";
 var currentBg = null;
+var bgDefault = { "--ui-bg": "#1c1410", "--ui-panel": "#14100c", "--ui-card": "#241a14", "--ui-card-hover": "#33241a" };
 
 function themesWallpaperSrc(file) {
   return "wallpapers/" + encodeURIComponent(file);
@@ -1723,7 +1711,6 @@ function themesBuildSliders() {
       setSliderValue("sat", s);
       setSliderValue("light", l);
       currentColors = accentColorsFromHsl(h, s, l);
-      currentSource = "custom";
       applyThemeVars(currentColors);
       localStorage.setItem(themesKey, "custom");
       localStorage.setItem(themesCustomKey, JSON.stringify(currentColors));
@@ -1757,13 +1744,6 @@ function themesBuildBgSliders() {
     input.value = value;
     var label = themesBgSliders.querySelector('[data-bgslider-val="' + name + '"]');
     if (label) label.textContent = value;
-  }
-
-  function bgFromColors(uiColors) {
-    var hsl = rgbToHsl(hexToRgb(uiColors["--ui-bg"]));
-    setBgSliderValue("hue", hsl.h);
-    setBgSliderValue("sat", hsl.s);
-    setBgSliderValue("light", hsl.l);
   }
 
   themesBgSliders.querySelectorAll("input[data-bgslider]").forEach(function (input) {
@@ -1805,7 +1785,7 @@ function themeRenderChips() {
   themesPresetChips.innerHTML = themesList.map(function (t) {
     return '<button class="theme-card' + (t.id === current ? " active" : "") + '" data-theme="' + t.id + '">' +
       '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (t.colors["--blood-hover"] || t.colors["--blood"]) + ', ' + (t.colors["--blood-dark"] || t.colors["--blood"]) + ');"></div>' +
-      '<span class="theme-name">' + galleryEsc(t.name) + '</span>' +
+      '<span class="theme-name">' + compEsc(t.name) + '</span>' +
       '</button>';
   }).join("");
 
@@ -1814,7 +1794,7 @@ function themeRenderChips() {
     ? saved.map(function (t) {
         return '<button class="theme-card saved" data-saved="' + t.id + '">' +
           '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (t.colors["--blood-hover"] || t.colors["--blood"]) + ', ' + (t.colors["--blood-dark"] || t.colors["--blood"]) + ');"></div>' +
-          '<span class="theme-name">' + galleryEsc(t.name) + '</span>' +
+          '<span class="theme-name">' + compEsc(t.name) + '</span>' +
           '</button>';
       }).join("")
     : '<span style="font-size:12px;color:rgba(232,213,168,0.4);">Nessun tema salvato</span>';
@@ -1822,11 +1802,10 @@ function themeRenderChips() {
   themesPresetChips.querySelectorAll(".theme-card").forEach(function (card) {
     card.addEventListener("click", function () {
       var id = card.getAttribute("data-theme");
-      var theme = themesList.filter(function (t) { return t.id === id; })[0];
+      var theme = themesList.find(function (t) { return t.id === id; });
       if (!theme) return;
       applyThemeVars(theme.colors);
       currentColors = theme.colors;
-      currentSource = "preset";
       localStorage.setItem(themesKey, id);
       localStorage.removeItem(themesCustomKey);
       sliderFromColors(theme.colors);
@@ -1845,7 +1824,6 @@ function themeRenderChips() {
         localStorage.setItem(customBgKey, JSON.stringify(currentBg));
       }
       currentColors = saved.colors;
-      currentSource = "saved";
       localStorage.setItem(themesKey, "custom");
       localStorage.setItem(themesCustomKey, JSON.stringify(saved.colors));
       sliderFromColors(saved.colors);
@@ -1857,14 +1835,11 @@ function themeRenderChips() {
 function themeRenderWallpaper() {
   if (!themesWallpaperGrid) return;
   var current = localStorage.getItem(wallpaperKey) || "";
-  var cards = wallpaperList.map(function (w) {
-    return { file: w.file, name: w.name, preset: false };
-  });
-  themesWallpaperGrid.innerHTML = cards.map(function (w) {
+  themesWallpaperGrid.innerHTML = wallpaperList.map(function (w) {
     var img = '<img class="wallpaper-thumb" src="' + themesWallpaperSrc(w.file) + '" alt="">';
     return '<button class="wallpaper-card' + (w.file === current ? " active" : "") + '" data-file="' + w.file + '">' +
       img +
-      '<span class="wallpaper-name">' + galleryEsc(w.name) + '</span>' +
+      '<span class="wallpaper-name">' + compEsc(w.name) + '</span>' +
       '</button>';
   }).join("");
   themesWallpaperGrid.querySelectorAll(".wallpaper-card").forEach(function (card) {
@@ -1894,7 +1869,6 @@ if (themesRandom) {
     var next = themesList[Math.floor(Math.random() * themesList.length)];
     applyThemeVars(next.colors);
     currentColors = next.colors;
-    currentSource = "preset";
     localStorage.setItem(themesKey, next.id);
     localStorage.removeItem(themesCustomKey);
     sliderFromColors(next.colors);
@@ -1918,11 +1892,9 @@ if (themesReset) {
     var fallback = { "--blood": "#690e0e", "--blood-hover": "#7a1010", "--blood-dark": "#230505", "--blood-deep": "#6e0808" };
     applyThemeVars(fallback);
     currentColors = fallback;
-    currentSource = "preset";
     localStorage.setItem(themesKey, "isaac");
     localStorage.removeItem(themesCustomKey);
     sliderFromColors(fallback);
-    var bgDefault = { "--ui-bg": "#1c1410", "--ui-panel": "#14100c", "--ui-card": "#241a14", "--ui-card-hover": "#33241a" };
     applyThemeVars(bgDefault);
     currentBg = bgDefault;
     localStorage.removeItem(customBgKey);
@@ -1965,7 +1937,7 @@ function themesSeedBgSliders() {
     try { base = JSON.parse(raw); } catch (e) { base = null; }
   }
   if (!base) {
-    base = { "--ui-bg": "#1c1410", "--ui-panel": "#14100c", "--ui-card": "#241a14", "--ui-card-hover": "#33241a" };
+    base = bgDefault;
   }
   var hsl = rgbToHsl(hexToRgb(base["--ui-bg"]));
   themesBgSliders.querySelector('input[data-bgslider="hue"]').value = hsl.h;
@@ -1983,15 +1955,13 @@ function themeInit() {
     try {
       currentColors = JSON.parse(customRaw);
       applyThemeVars(currentColors);
-      currentSource = "custom";
       sliderFromColors(currentColors);
     } catch (e) {}
   } else {
-    var theme = themesList.filter(function (t) { return t.id === saved; })[0];
+    var theme = themesList.find(function (t) { return t.id === saved; });
     if (!theme) theme = themesList[0];
     if (theme) {
       currentColors = theme.colors;
-      currentSource = "preset";
       applyThemeVars(theme.colors);
       sliderFromColors(theme.colors);
     }
