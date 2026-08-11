@@ -25,6 +25,10 @@
       <div class="appicon-img"><img src="img/Code_Generated_Image.png" alt="notes"></div>
       <p class="appicon-label">Notes</p>
     </div>
+    <div class="appicon" id="themesicon">
+      <div class="appicon-img"><img src="img/Trinket_Rainbow_Worm_icon.webp" alt="themes"></div>
+      <p class="appicon-label">Themes</p>
+    </div>
     <div class="appicon" id="contactsicon">
       <div class="appicon-img"><img src="img/contactsicon.png" alt="contatti"></div>
       <p class="appicon-label">Find me</p>
@@ -220,12 +224,68 @@
     </div>
   </div>
 
+  <div class="window" id="themes" style="display: none;">
+    <div class="windowheader" id="themesheader">
+      <span class="window-title">Themes</span>
+      <div class="minbutton" id="themesmin" title="Minimizza"></div>
+      <div class="closebutton" id="themesclose"></div>
+    </div>
+    <div class="themes-app">
+      <div class="themes-tabs" id="themesTabs">
+        <button class="themes-tab active" data-tab="colors">Colors</button>
+        <button class="themes-tab" data-tab="wallpaper">Wallpaper</button>
+      </div>
+      <div class="themes-flex">
+        <div class="themes-mirror">
+          <div class="mirror-label">Anteprima</div>
+          <div class="mirror-stage">
+            <div class="mirror-wallpaper"></div>
+            <div class="mirror-window">
+              <div class="mirror-titlebar"><i></i><i></i></div>
+              <div class="mirror-windowline"></div>
+              <div class="mirror-windowline short"></div>
+            </div>
+            <div class="mirror-dock"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="themes-col">
+          <div class="themes-content visible" id="themesColors">
+            <div class="themes-section-label">Presa valore canonica</div>
+            <div class="themes-chips" id="themesPresetChips"></div>
+            <div class="themes-section-label">Regola il colore</div>
+            <div class="themes-sliders" id="themesSliders"></div>
+            <div class="themes-section-label">Sfondo finestre</div>
+            <div class="themes-sliders" id="themesBgSliders"></div>
+            <div class="themes-actions">
+              <button class="themes-action" id="themesRandom" title="Tema casuale">🎲 Random</button>
+              <button class="themes-action" id="themesReset" title="Torna all'Isaac">🗑 Reset</button>
+              <button class="themes-action primary" id="themesSaveBtn" title="Salva tema">Salva</button>
+            </div>
+            <div class="themes-savebox" id="themesSaveBox" style="display:none;">
+              <input class="themes-name" id="themesName" type="text" placeholder="Nome del tema..." maxlength="24">
+              <button class="themes-action primary" id="themesConfirmSave">Salva</button>
+            </div>
+            <div class="themes-section-label">Salvati</div>
+            <div class="themes-chips" id="themesSavedChips"></div>
+          </div>
+          <div class="themes-content hidden" id="themesWallpaper">
+            <div class="themes-section-label">Sfondo</div>
+            <div class="themes-grid" id="themesWallpaperGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script src="data/items.js"></script>
+    <script src="data/bosses.js"></script>
     <script src="data/trinkets.js"></script>
     <script src="data/unlocks.js"></script>
     <script src="data/characters.js"></script>
     <script src="data/challenges.js"></script>
     <script src="data/photos.js"></script>
+    <script src="data/themes.js"></script>
+    <script src="data/wallpapers.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

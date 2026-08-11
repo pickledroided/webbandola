@@ -163,7 +163,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "themes"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -198,7 +198,12 @@ function renderDock(){
     item.innerHTML = '<img src="' + src + '" alt="' + id + '">';
 
     item.addEventListener("click", function () {
-      openWindow(document.getElementById(id));
+      var win = document.getElementById(id);
+      if (openApps[id] === "open" && win) {
+        minWindow(win);
+      } else {
+        openWindow(win);
+      }
     });
 
     dockItems[id] = item;
@@ -383,6 +388,7 @@ var browserScreen = initializeApp("browser");
 var calculatorScreen = initializeApp("calculator");
 var compendiumScreen = initializeApp("compendium");
 var galleryScreen = initializeApp("gallery");
+var themesScreen = initializeApp("themes");
 
 
 var calcDisplay = document.querySelector("#calcDisplay");
@@ -831,6 +837,9 @@ function compSectionCfg() {
   if (compSection === "trinkets") {
     return { label: "Trinkets", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "quote"] };
   }
+  if (compSection === "bosses") {
+    return { label: "Bosses", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "location"] };
+  }
   if (compSection === "unlocks") {
     if (compUnlockCat === "characters") {
       return { label: "Characters", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "unlock", "unlockName"] };
@@ -893,6 +902,7 @@ function compOpenUnlocksHub() {
 }
 
 function compSectionData() {
+  if (compSection === "bosses") return window.ISAAC_BOSSES || [];
   if (compSection === "trinkets") return window.ISAAC_TRINKETS || [];
   if (compSection === "unlocks") return compUnlockCat ? compUnlockCatData(compUnlockCat) : [];
   return window.ISAAC_ITEMS || [];
@@ -924,7 +934,7 @@ function compSetSection(name) {
 }
 
 function compRenderTabs() {
-  compTabs.innerHTML = [["items", "Items"], ["trinkets", "Trinkets"], ["unlocks", "Unlocks"]].map(function (t) {
+  compTabs.innerHTML = [["items", "Items"], ["trinkets", "Trinkets"], ["unlocks", "Unlocks"], ["bosses", "Bosses"]].map(function (t) {
     return '<button class="compendium-tab' + (compSection === t[0] ? " active" : "") + '" data-section="' + t[0] + '">' + t[1] + '</button>';
   }).join("");
 }
@@ -948,6 +958,24 @@ function compEsc(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+var compWikiMap = null;
+function compItemWiki(name) {
+  if (!compWikiMap) {
+    compWikiMap = {};
+    [window.ISAAC_UNLOCKS, window.ISAAC_ITEMS, window.ISAAC_TRINKETS, window.ISAAC_CHARACTERS, window.ISAAC_CHALLENGES]
+      .forEach(function (arr) {
+        (arr || []).forEach(function (e) {
+          if (e.wiki) {
+            compWikiMap[e.name] = e.wiki;
+            if (e.key) compWikiMap[e.key] = e.wiki;
+          }
+        });
+      });
+  }
+  return compWikiMap[name] ||
+    "https://bindingofisaacrebirth.wiki.gg/wiki/" + encodeURIComponent(String(name).replace(/ /g, "_"));
 }
 
 function compQualityColor(q) {
@@ -983,6 +1011,15 @@ function compFiltered() {
 }
 
 function compSortItems(list) {
+  if (compSection === "bosses") {
+    return list.slice().sort(function (a, b) {
+      var ak = (a.kills && a.kills.length) || 0;
+      var bk = (b.kills && b.kills.length) || 0;
+      if (ak !== bk) return bk - ak;
+      if (compSort === "alpha") return a.name.localeCompare(b.name);
+      return (a.dlc || 0) - (b.dlc || 0);
+    });
+  }
   if (compSection === "unlocks" && compUnlockCat === "characters") {
     return list.slice().sort(function (a, b) {
       var at = isTaintedChar(a);
@@ -1021,12 +1058,37 @@ function compRender() {
   var list = compSortItems(compFiltered());
 
   var isChars = compSection === "unlocks" && compUnlockCat === "characters";
+  var isBosses = compSection === "bosses";
   compList.classList.toggle("compendium-list-big", isChars);
+  compList.classList.toggle("compendium-list-boss", isBosses);
 
   if (list.length === 0) {
     compList.innerHTML = '<div class="compendium-empty">No ' + compSectionCfg().label.toLowerCase() + ' found.</div>';
   } else {
     compList.innerHTML = list.map(function (item) {
+      if (isBosses) {
+        var kills = item.kills && item.kills.length ? '<span class="compendium-card-bosses">' + item.kills.length + ' unlock</span>' : "";
+        var loc = item.location
+          ? '<span class="compendium-card-bossloc">' + compEsc(item.location) + '</span>'
+          : "";
+        var photo = item.photo
+          ? '<img class="compendium-boss-photo" src="' + compEsc(item.photo) + '" alt="" loading="lazy">'
+          : '<span class="compendium-card-noimg compendium-boss-noimg">?</span>';
+        var icon = item.icon
+          ? '<img class="compendium-boss-mini" src="' + compEsc(item.icon) + '" alt="" loading="lazy">'
+          : "";
+        return '<button class="compendium-card compendium-card-boss' + (compSelectedKey === item.key ? " selected" : "") + '" data-key="' + compEsc(item.key) + '">' +
+          '<span class="compendium-boss-photowrap">' + photo + '</span>' +
+          '<span class="compendium-boss-cardfoot">' +
+            icon +
+            '<span class="compendium-boss-cardinfo">' +
+              '<span class="compendium-card-name">' + compEsc(item.name) + '</span>' +
+              loc +
+            '</span>' +
+          '</span>' +
+          kills +
+          '</button>';
+      }
       var q = item.quality == null
         ? ""
         : '<span class="compendium-card-q" style="color:' + compQualityColor(item.quality) + '">' + item.quality + '</span>';
@@ -1067,6 +1129,50 @@ function compRenderDetail() {
   var item = compItems.find(function (i) { return i.key === compSelectedKey; });
   if (!item) {
     compDetail.innerHTML = '<div class="compendium-detail-empty">Select an ' + compSectionCfg().label.toLowerCase() + '</div>';
+    return;
+  }
+
+  if (compSection === "bosses") {
+    var killRows = (item.kills || []).map(function (k) {
+      var charWiki = compItemWiki(k.char);
+      var cIcon = k.charIcon
+        ? '<img class="compendium-boss-icon" src="' + compEsc(k.charIcon) + '" alt="">'
+        : '<span class="compendium-unlock-noicon">?</span>';
+      var cName = /^Tainted\b/i.test(k.char || "") ? k.char : k.char;
+      var itemIcon = k.itemIcon
+        ? '<img class="compendium-boss-item-icon" src="' + compEsc(k.itemIcon) + '" alt="">'
+        : '<span class="compendium-unlock-noicon">?</span>';
+      return '<div class="compendium-boss-row">' +
+        '<a class="compendium-boss-side" href="' + compEsc(charWiki) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(k.char) + '">' +
+        cIcon + '<span class="compendium-boss-name">' + compEsc(cName) + '</span></a>' +
+        '<span class="compendium-boss-arrow">\u2192</span>' +
+        '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(k.item)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(k.item) + '">' +
+        itemIcon + '<span class="compendium-boss-item-name">' + compEsc(k.item) + '</span></a>' +
+        '</div>';
+    }).join("");
+
+    var photo = item.photo
+      ? '<img class="compendium-boss-detailimg" src="' + compEsc(item.photo) + '" alt="">'
+      : "";
+    var icon = item.icon
+      ? '<img class="compendium-detail-img" src="' + compEsc(item.icon) + '" alt="">'
+      : "";
+    var dlcChip = item.introduced
+      ? '<div class="compendium-detail-chip">' + compEsc(item.introduced) + '</div>'
+      : "";
+    compDetail.innerHTML =
+      '<div class="compendium-detail-head">' + icon +
+        '<div class="compendium-detail-titles">' +
+          '<h3 class="compendium-detail-name">' + compEsc(item.name) + '</h3>' +
+        '</div>' +
+      '</div>' +
+      '<div class="compendium-detail-meta">' + dlcChip + '</div>' +
+      photo +
+      (item.location ? '<div class="compendium-unlock"><h4 class="compendium-unlock-title">How to reach</h4>' +
+        '<p class="compendium-unlock-text">' + compEsc(item.location) + '</p></div>' : '') +
+      (killRows ? '<div class="compendium-unlock"><h4 class="compendium-unlock-title">Class unlocks</h4>' +
+        '<div class="compendium-boss-list">' + killRows + '</div></div>' : '') +
+      '<a class="compendium-detail-link" href="' + compEsc(item.wiki) + '" target="_blank" rel="noopener">Open in wiki.gg \u2192</a>';
     return;
   }
 
@@ -1164,14 +1270,16 @@ function compUnlockHtml(item) {
             var itemIcon = bu.itemIcon
               ? '<img class="compendium-boss-item-icon" src="' + compEsc(bu.itemIcon) + '" alt="">'
               : '<span class="compendium-unlock-noicon">?</span>';
+            var bossWiki = "https://bindingofisaacrebirth.wiki.gg/wiki/" +
+              encodeURIComponent(String(bu.boss.name || "").replace(/ /g, "_"));
             return '<div class="compendium-boss-row">' +
-              '<span class="compendium-boss-side" title="' + compEsc(bu.boss.name) + '">' +
+              '<a class="compendium-boss-side" href="' + compEsc(bossWiki) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(bu.boss.name) + '">' +
               bossIcon + '<span class="compendium-boss-name">' + compEsc(bu.boss.name) + '</span>' +
-              '</span>' +
+              '</a>' +
               '<span class="compendium-boss-arrow">\u2192</span>' +
-              '<span class="compendium-boss-item" title="' + compEsc(bu.item) + '">' +
+              '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(bu.item)) + '" target="_blank" rel="noopener" title="Apri su wiki.gg: ' + compEsc(bu.item) + '">' +
               itemIcon + '<span class="compendium-boss-item-name">' + compEsc(bu.item) + '</span>' +
-              '</span>' +
+              '</a>' +
               '</div>';
           }).join("") +
           '</div></div>';
@@ -1309,9 +1417,15 @@ function compBuildFilters() {
 
   var sortHtml = '';
   if (cfg.hasQuality) sortHtml = '<option value="id">Sort by ID</option><option value="alpha">Alphabetical</option><option value="quality">Quality (4 → 0)</option>';
+  else if (compSection === "bosses") sortHtml = '<option value="order">Sort by unlock count</option><option value="alpha">Alphabetical</option>';
   else sortHtml = '<option value="id">Sort by ID</option><option value="alpha">Alphabetical</option>';
   compSortSel.innerHTML = sortHtml;
-  compSortSel.value = compSort;
+  if (compSortSel.querySelector('option[value="' + compSort + '"]')) {
+    compSortSel.value = compSort;
+  } else {
+    compSortSel.value = compSection === "bosses" ? "order" : "id";
+    compSort = compSortSel.value;
+  }
 }
 
 compSearch.addEventListener("input", function () {
@@ -1442,3 +1556,458 @@ galleryGrid.addEventListener("dblclick", function (e) {
 });
 
 galleryRender();
+
+// --- Themes app ---
+
+var themesKey = "isaacos_theme";
+var themesCustomKey = "isaacos_custom_theme";
+var wallpaperKey = "isaacos_wallpaper";
+var savedThemesKey = "isaacos_saved_themes";
+
+var themesList = typeof window.ISAAC_THEMES !== "undefined" && window.ISAAC_THEMES
+  ? window.ISAAC_THEMES
+  : [];
+var wallpaperList = typeof window.ISAAC_WALLPAPERS !== "undefined" && window.ISAAC_WALLPAPERS
+  ? window.ISAAC_WALLPAPERS
+  : [];
+
+var themesColors = document.querySelector("#themesColors");
+var themesWallpaper = document.querySelector("#themesWallpaper");
+var themesTabs = document.querySelectorAll(".themes-tab");
+var themesPresetChips = document.querySelector("#themesPresetChips");
+var themesSavedChips = document.querySelector("#themesSavedChips");
+var themesSliders = document.querySelector("#themesSliders");
+var themesBgSliders = document.querySelector("#themesBgSliders");
+var themesSaveBtn = document.querySelector("#themesSaveBtn");
+var themesSaveBox = document.querySelector("#themesSaveBox");
+var themesName = document.querySelector("#themesName");
+var themesConfirmSave = document.querySelector("#themesConfirmSave");
+var themesRandom = document.querySelector("#themesRandom");
+var themesReset = document.querySelector("#themesReset");
+var themesWallpaperGrid = document.querySelector("#themesWallpaperGrid");
+
+var currentColors = null;
+var currentSource = "";
+var customBgKey = "isaacos_custom_bg";
+var currentBg = null;
+
+function themesWallpaperSrc(file) {
+  return "wallpapers/" + encodeURIComponent(file);
+}
+
+function applyThemeVars(colors) {
+  if (!colors) return;
+  Object.keys(colors).forEach(function (name) {
+    document.documentElement.style.setProperty(name, colors[name]);
+  });
+}
+
+function applyWallpaper(file) {
+  if (!file) {
+    document.documentElement.style.removeProperty("--wallpaper");
+    return;
+  }
+  document.documentElement.style.setProperty("--wallpaper", 'url("' + themesWallpaperSrc(file).replace(/"/g, "%22") + '")');
+}
+
+function hexToRgb(hex) {
+  var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
+  if (!m) return { r: 105, g: 14, b: 14 };
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
+function rgbToHsl(color) {
+  var r = color.r / 255, g = color.g / 255, b = color.b / 255;
+  var max = Math.max(r, g, b), min = Math.min(r, g, b);
+  var h, s, l = (max + min) / 2;
+  if (max === min) {
+    h = 0;
+    s = 0;
+  } else {
+    var d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+      case g: h = ((b - r) / d + 2); break;
+      default: h = ((r - g) / d + 4); break;
+    }
+    h *= 60;
+  }
+  return {
+    h: Math.round(h),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  };
+}
+
+function hslToRgb(h, s, l) {
+  s = s / 100;
+  l = l / 100;
+  var c = (1 - Math.abs(2 * l - 1)) * s;
+  var x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  var m = l - c / 2;
+  var r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  function ch(v) { return Math.round((v + m) * 255); }
+  return { r: ch(r), g: ch(g), b: ch(b) };
+}
+
+function rgbToHex(color) {
+  function pad(v) { return ("0" + v.toString(16)).slice(-2); }
+  return "#" + pad(color.r) + pad(color.g) + pad(color.b);
+}
+
+function accentColorsFromHsl(h, s, l) {
+  return {
+    "--blood": rgbToHex(hslToRgb(h, s, l)),
+    "--blood-hover": rgbToHex(hslToRgb(h, Math.min(100, s + 10), Math.min(100, l + 8))),
+    "--blood-deep": rgbToHex(hslToRgb(h, Math.max(0, s - 4), Math.max(0, l - 10))),
+    "--blood-dark": rgbToHex(hslToRgb(h, Math.max(0, s - 8), Math.max(0, l - 16)))
+  };
+}
+
+function bgColorsFromHsl(h, s, l) {
+  function clamp(v) { return Math.max(0, Math.min(100, Math.round(v))); }
+  return {
+    "--ui-bg": rgbToHex(hslToRgb(h, clamp(s), clamp(l))),
+    "--ui-panel": rgbToHex(hslToRgb(h, clamp(s * 0.7), clamp(l * 0.62))),
+    "--ui-card": rgbToHex(hslToRgb(h, clamp(s * 1.2), clamp(l * 1.4))),
+    "--ui-card-hover": rgbToHex(hslToRgb(h, clamp(s * 1.4), clamp(l * 1.9)))
+  };
+}
+
+function setSliderValue(name, value) {
+  var input = themesSliders.querySelector('input[data-slider="' + name + '"]');
+  if (!input) return;
+  input.value = value;
+  var label = themesSliders.querySelector('[data-slider-val="' + name + '"]');
+  if (label) label.textContent = value;
+}
+
+function sliderFromColors(colors) {
+  var hsl = rgbToHsl(hexToRgb(colors["--blood"]));
+  setSliderValue("hue", hsl.h);
+  setSliderValue("sat", hsl.s);
+  setSliderValue("light", hsl.l);
+}
+
+function themesBuildSliders() {
+  themesSliders.innerHTML =
+    '<div class="slider-row">' +
+      '<span class="slider-label">Tonalità</span>' +
+      '<input type="range" min="0" max="360" value="0" data-slider="hue">' +
+      '<span class="slider-value" data-slider-val="hue">0</span>' +
+    '</div>' +
+    '<div class="slider-row">' +
+      '<span class="slider-label">Saturazione</span>' +
+      '<input type="range" min="0" max="100" value="0" data-slider="sat">' +
+      '<span class="slider-value" data-slider-val="sat">0</span>' +
+    '</div>' +
+    '<div class="slider-row">' +
+      '<span class="slider-label">Luminosità</span>' +
+      '<input type="range" min="0" max="100" value="0" data-slider="light">' +
+      '<span class="slider-value" data-slider-val="light">0</span>' +
+    '</div>';
+
+  themesSliders.querySelectorAll("input[data-slider]").forEach(function (input) {
+    input.addEventListener("input", function () {
+      var h = parseInt(themesSliders.querySelector('input[data-slider="hue"]').value, 10);
+      var s = parseInt(themesSliders.querySelector('input[data-slider="sat"]').value, 10);
+      var l = parseInt(themesSliders.querySelector('input[data-slider="light"]').value, 10);
+      setSliderValue("hue", h);
+      setSliderValue("sat", s);
+      setSliderValue("light", l);
+      currentColors = accentColorsFromHsl(h, s, l);
+      currentSource = "custom";
+      applyThemeVars(currentColors);
+      localStorage.setItem(themesKey, "custom");
+      localStorage.setItem(themesCustomKey, JSON.stringify(currentColors));
+      themeRenderChips();
+    });
+  });
+}
+
+function themesBuildBgSliders() {
+  if (!themesBgSliders) return;
+  themesBgSliders.innerHTML =
+    '<div class="slider-row">' +
+      '<span class="slider-label">Tonalità</span>' +
+      '<input type="range" min="0" max="360" value="0" data-bgslider="hue">' +
+      '<span class="slider-value" data-bgslider-val="hue">0</span>' +
+    '</div>' +
+    '<div class="slider-row">' +
+      '<span class="slider-label">Saturazione</span>' +
+      '<input type="range" min="0" max="100" value="0" data-bgslider="sat">' +
+      '<span class="slider-value" data-bgslider-val="sat">0</span>' +
+    '</div>' +
+    '<div class="slider-row">' +
+      '<span class="slider-label">Luminosità</span>' +
+      '<input type="range" min="0" max="100" value="0" data-bgslider="light">' +
+      '<span class="slider-value" data-bgslider-val="light">0</span>' +
+    '</div>';
+
+  function setBgSliderValue(name, value) {
+    var input = themesBgSliders.querySelector('input[data-bgslider="' + name + '"]');
+    if (!input) return;
+    input.value = value;
+    var label = themesBgSliders.querySelector('[data-bgslider-val="' + name + '"]');
+    if (label) label.textContent = value;
+  }
+
+  function bgFromColors(uiColors) {
+    var hsl = rgbToHsl(hexToRgb(uiColors["--ui-bg"]));
+    setBgSliderValue("hue", hsl.h);
+    setBgSliderValue("sat", hsl.s);
+    setBgSliderValue("light", hsl.l);
+  }
+
+  themesBgSliders.querySelectorAll("input[data-bgslider]").forEach(function (input) {
+    input.addEventListener("input", function () {
+      var h = parseInt(themesBgSliders.querySelector('input[data-bgslider="hue"]').value, 10);
+      var s = parseInt(themesBgSliders.querySelector('input[data-bgslider="sat"]').value, 10);
+      var l = parseInt(themesBgSliders.querySelector('input[data-bgslider="light"]').value, 10);
+      setBgSliderValue("hue", h);
+      setBgSliderValue("sat", s);
+      setBgSliderValue("light", l);
+      currentBg = bgColorsFromHsl(h, s, l);
+      applyThemeVars(currentBg);
+      localStorage.setItem(customBgKey, JSON.stringify(currentBg));
+    });
+  });
+}
+
+function themesSavedList() {
+  try {
+    var raw = localStorage.getItem(savedThemesKey);
+    var list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function themesGetSavedColors(id) {
+  var list = themesSavedList();
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === id) return list[i];
+  }
+  return null;
+}
+
+function themeRenderChips() {
+  if (!themesPresetChips || !themesSavedChips) return;
+  var current = localStorage.getItem(themesKey) || "isaac";
+  themesPresetChips.innerHTML = themesList.map(function (t) {
+    return '<button class="theme-card' + (t.id === current ? " active" : "") + '" data-theme="' + t.id + '">' +
+      '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (t.colors["--blood-hover"] || t.colors["--blood"]) + ', ' + (t.colors["--blood-dark"] || t.colors["--blood"]) + ');"></div>' +
+      '<span class="theme-name">' + galleryEsc(t.name) + '</span>' +
+      '</button>';
+  }).join("");
+
+  var saved = themesSavedList();
+  themesSavedChips.innerHTML = saved.length
+    ? saved.map(function (t) {
+        return '<button class="theme-card saved" data-saved="' + t.id + '">' +
+          '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (t.colors["--blood-hover"] || t.colors["--blood"]) + ', ' + (t.colors["--blood-dark"] || t.colors["--blood"]) + ');"></div>' +
+          '<span class="theme-name">' + galleryEsc(t.name) + '</span>' +
+          '</button>';
+      }).join("")
+    : '<span style="font-size:12px;color:rgba(232,213,168,0.4);">Nessun tema salvato</span>';
+
+  themesPresetChips.querySelectorAll(".theme-card").forEach(function (card) {
+    card.addEventListener("click", function () {
+      var id = card.getAttribute("data-theme");
+      var theme = themesList.filter(function (t) { return t.id === id; })[0];
+      if (!theme) return;
+      applyThemeVars(theme.colors);
+      currentColors = theme.colors;
+      currentSource = "preset";
+      localStorage.setItem(themesKey, id);
+      localStorage.removeItem(themesCustomKey);
+      sliderFromColors(theme.colors);
+      themeRenderChips();
+    });
+  });
+
+  themesSavedChips.querySelectorAll(".theme-card").forEach(function (card) {
+    card.addEventListener("click", function () {
+      var saved = themesGetSavedColors(card.getAttribute("data-saved"));
+      if (!saved) return;
+      applyThemeVars(saved.colors);
+      if (saved.bg) {
+        currentBg = saved.bg;
+        applyThemeVars(currentBg);
+        localStorage.setItem(customBgKey, JSON.stringify(currentBg));
+      }
+      currentColors = saved.colors;
+      currentSource = "saved";
+      localStorage.setItem(themesKey, "custom");
+      localStorage.setItem(themesCustomKey, JSON.stringify(saved.colors));
+      sliderFromColors(saved.colors);
+      themeRenderChips();
+    });
+  });
+}
+
+function themeRenderWallpaper() {
+  if (!themesWallpaperGrid) return;
+  var current = localStorage.getItem(wallpaperKey) || "";
+  var cards = wallpaperList.map(function (w) {
+    return { file: w.file, name: w.name, preset: false };
+  });
+  themesWallpaperGrid.innerHTML = cards.map(function (w) {
+    var img = '<img class="wallpaper-thumb" src="' + themesWallpaperSrc(w.file) + '" alt="">';
+    return '<button class="wallpaper-card' + (w.file === current ? " active" : "") + '" data-file="' + w.file + '">' +
+      img +
+      '<span class="wallpaper-name">' + galleryEsc(w.name) + '</span>' +
+      '</button>';
+  }).join("");
+  themesWallpaperGrid.querySelectorAll(".wallpaper-card").forEach(function (card) {
+    card.addEventListener("click", function () {
+      var file = card.getAttribute("data-file");
+      applyWallpaper(file);
+      localStorage.setItem(wallpaperKey, file);
+      themeRenderWallpaper();
+    });
+  });
+}
+
+if (themesTabs && themesTabs.length && themesColors && themesWallpaper) {
+  themesTabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      themesTabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      var which = tab.getAttribute("data-tab");
+      themesColors.classList.toggle("visible", which === "colors");
+      themesWallpaper.classList.toggle("visible", which === "wallpaper");
+    });
+  });
+}
+
+if (themesRandom) {
+  themesRandom.addEventListener("click", function () {
+    var next = themesList[Math.floor(Math.random() * themesList.length)];
+    applyThemeVars(next.colors);
+    currentColors = next.colors;
+    currentSource = "preset";
+    localStorage.setItem(themesKey, next.id);
+    localStorage.removeItem(themesCustomKey);
+    sliderFromColors(next.colors);
+    themeRenderChips();
+
+    var accentH = rgbToHsl(hexToRgb(next.colors["--blood"])).h;
+    var bgH = Math.floor(Math.random() * 360);
+    if (Math.abs(bgH - accentH) < 40) bgH = (bgH + 180) % 360;
+    var bgSat = Math.floor(Math.random() * 35) + 8;
+    var bgLight = Math.floor(Math.random() * 16) + 12;
+    var bg = bgColorsFromHsl(bgH, bgSat, bgLight);
+    applyThemeVars(bg);
+    currentBg = bg;
+    localStorage.setItem(customBgKey, JSON.stringify(bg));
+    themesSeedBgSliders();
+  });
+}
+
+if (themesReset) {
+  themesReset.addEventListener("click", function () {
+    var fallback = { "--blood": "#690e0e", "--blood-hover": "#7a1010", "--blood-dark": "#230505", "--blood-deep": "#6e0808" };
+    applyThemeVars(fallback);
+    currentColors = fallback;
+    currentSource = "preset";
+    localStorage.setItem(themesKey, "isaac");
+    localStorage.removeItem(themesCustomKey);
+    sliderFromColors(fallback);
+    var bgDefault = { "--ui-bg": "#1c1410", "--ui-panel": "#14100c", "--ui-card": "#241a14", "--ui-card-hover": "#33241a" };
+    applyThemeVars(bgDefault);
+    currentBg = bgDefault;
+    localStorage.removeItem(customBgKey);
+    themesSeedBgSliders();
+    themeRenderChips();
+  });
+}
+
+if (themesSaveBtn) {
+  themesSaveBtn.addEventListener("click", function () {
+    themesSaveBox.style.display = themesSaveBox.style.display === "none" ? "flex" : "none";
+    if (themesSaveBox.style.display === "flex") themesName.focus();
+  });
+}
+
+if (themesConfirmSave) {
+  themesConfirmSave.addEventListener("click", function () {
+    var name = themesName.value.trim();
+    if (!name || !currentColors) {
+      if (!name) themesName.focus();
+      return;
+    }
+    var list = themesSavedList();
+    list.push({ id: "saved-" + Date.now(), name: name, colors: currentColors, bg: currentBg });
+    localStorage.setItem(savedThemesKey, JSON.stringify(list));
+    themesName.value = "";
+    themesSaveBox.style.display = "none";
+    themeRenderChips();
+  });
+}
+
+themesBuildSliders();
+themesBuildBgSliders();
+
+function themesSeedBgSliders() {
+  if (!themesBgSliders) return;
+  var raw = localStorage.getItem(customBgKey);
+  var base = null;
+  if (raw) {
+    try { base = JSON.parse(raw); } catch (e) { base = null; }
+  }
+  if (!base) {
+    base = { "--ui-bg": "#1c1410", "--ui-panel": "#14100c", "--ui-card": "#241a14", "--ui-card-hover": "#33241a" };
+  }
+  var hsl = rgbToHsl(hexToRgb(base["--ui-bg"]));
+  themesBgSliders.querySelector('input[data-bgslider="hue"]').value = hsl.h;
+  themesBgSliders.querySelector('[data-bgslider-val="hue"]').textContent = hsl.h;
+  themesBgSliders.querySelector('input[data-bgslider="sat"]').value = hsl.s;
+  themesBgSliders.querySelector('[data-bgslider-val="sat"]').textContent = hsl.s;
+  themesBgSliders.querySelector('input[data-bgslider="light"]').value = hsl.l;
+  themesBgSliders.querySelector('[data-bgslider-val="light"]').textContent = hsl.l;
+}
+
+function themeInit() {
+  var saved = localStorage.getItem(themesKey) || "";
+  var customRaw = localStorage.getItem(themesCustomKey);
+  if (saved === "custom" && customRaw) {
+    try {
+      currentColors = JSON.parse(customRaw);
+      applyThemeVars(currentColors);
+      currentSource = "custom";
+      sliderFromColors(currentColors);
+    } catch (e) {}
+  } else {
+    var theme = themesList.filter(function (t) { return t.id === saved; })[0];
+    if (!theme) theme = themesList[0];
+    if (theme) {
+      currentColors = theme.colors;
+      currentSource = "preset";
+      applyThemeVars(theme.colors);
+      sliderFromColors(theme.colors);
+    }
+  }
+  var savedBg = localStorage.getItem(customBgKey);
+  if (savedBg) {
+    try {
+      currentBg = JSON.parse(savedBg);
+      applyThemeVars(currentBg);
+    } catch (e) {}
+  }
+  themesSeedBgSliders();
+  var savedWall = localStorage.getItem(wallpaperKey) || "";
+  if (savedWall) applyWallpaper(savedWall);
+}
+
+themeInit();
+themeRenderChips();
+themeRenderWallpaper();
