@@ -8,16 +8,38 @@ updateTime();
 
 var osContainer = document.getElementById("os");
 
+var osBaseKey = "isaacos_os_base";
+var osBaseW = 1280;
+var osBaseH = 720;
+
+function initOsBase() {
+  try {
+    var saved = localStorage.getItem(osBaseKey);
+    if (saved) {
+      var parts = saved.split("x");
+      if (parts.length === 2 && parseFloat(parts[0]) > 0 && parseFloat(parts[1]) > 0) {
+        osBaseW = parseFloat(parts[0]);
+        osBaseH = parseFloat(parts[1]);
+      }
+    } else {
+      osBaseW = window.innerWidth;
+      osBaseH = window.innerHeight;
+      localStorage.setItem(osBaseKey, osBaseW + "x" + osBaseH);
+    }
+  } catch (e) {}
+  if (osContainer) {
+    osContainer.style.width = osBaseW + "px";
+    osContainer.style.height = osBaseH + "px";
+  }
+}
+
 function fitOsToScreen() {
   if (!osContainer) return;
 
-  var scale = Math.min(
-    1,
-    window.innerWidth / 1280,
-    window.innerHeight / 720
-  );
+  var scaleX = window.innerWidth / osBaseW;
+  var scaleY = window.innerHeight / osBaseH;
 
-  osContainer.style.transform = "scale(" + scale + ")";
+  osContainer.style.transform = "scale(" + scaleX + ", " + scaleY + ")";
   osContainer.style.left = "0px";
   osContainer.style.top = "0px";
 }
@@ -29,6 +51,7 @@ function getOsScale() {
 }
 
 window.addEventListener("resize", fitOsToScreen);
+initOsBase();
 fitOsToScreen();
 
 // --- Window management ---
@@ -86,9 +109,10 @@ function setupResize(element) {
     e.stopPropagation();
 
     var s = getOsScale();
+    var osRect = osContainer.getBoundingClientRect();
     var rect = element.getBoundingClientRect();
-    var vx = rect.left / s;
-    var vy = rect.top / s;
+    var vx = (rect.left - osRect.left) / s;
+    var vy = (rect.top - osRect.top) / s;
     var startW = element.offsetWidth;
     var startH = element.offsetHeight;
     var startX = e.clientX;
@@ -308,11 +332,15 @@ function makeIconDraggable(icon) {
   icon.addEventListener("mousedown", function (e) {
     e = e || window.event;
     e.preventDefault();
+    var parent = icon.offsetParent || osContainer;
+    var parentRect = parent.getBoundingClientRect();
     var s = getOsScale();
+    var localX = (e.clientX - parentRect.left) / s;
+    var localY = (e.clientY - parentRect.top) / s;
     startX = e.clientX;
     startY = e.clientY;
-    offsetX = (e.clientX / s) - icon.offsetLeft;
-    offsetY = (e.clientY / s) - icon.offsetTop;
+    offsetX = localX - icon.offsetLeft;
+    offsetY = localY - icon.offsetTop;
     dragging = true;
     moved = false;
 
@@ -320,9 +348,8 @@ function makeIconDraggable(icon) {
       if (!dragging) return;
       ev = ev || window.event;
       ev.preventDefault();
-      var s2 = getOsScale();
-      var x = (ev.clientX / s2) - offsetX;
-      var y = (ev.clientY / s2) - offsetY;
+      var x = ((ev.clientX - parentRect.left) / s) - offsetX;
+      var y = ((ev.clientY - parentRect.top) / s) - offsetY;
       if (Math.abs(ev.clientX - startX) > 3 || Math.abs(ev.clientY - startY) > 3) {
         moved = true;
       }
@@ -372,6 +399,15 @@ function loadIconPositions() {
 } 
 
 loadIconPositions();
+
+(function resetStaleIconPositions() {
+  try {
+    if (!localStorage.getItem("isaacos_icon_positions_v2")) {
+      localStorage.removeItem(iconPositionsKey);
+      localStorage.setItem("isaacos_icon_positions_v2", "1");
+    }
+  } catch (e) {}
+})();
 
 var welcomeScreen = initializeWindow("welcome");
 var welcomeScreenOpen = document.querySelector("#welcomeopen");

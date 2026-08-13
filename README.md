@@ -14,7 +14,11 @@ https://pickledroided.github.io/webbandola/
 
 ## The Idea
 
-i always liked operating system customization (even tho rn it doesn't have many but it's just a demo), but i wanted something more personal and unique and rn my obsession game is isaac so this was the first idea i had in mind. i also wanted to try some css animations but couldn't get them right so i asked deepseek for help and i am pretty happy with the result.
+i always liked operating system customization (even tho rn it doesn't have many but it's just a demo), but i wanted something more personal and unique and rn my obsession game is isaac so this was the first idea i had in mind. i also wanted to try some css animations but couldn't get them right so i asked deepseek for help and i am pretty happy with the result. 
+
+## The Compendium App
+
+ok so i made this app inside of webbandola that is basically a wiki of all items, unlocks with certain characters, bosses etc all sorted by DLCs available, item pools, quality (0 to 4). it is the most useful app in the whole os and u can also see what bosses to kill to unlock certain items and see which unlocks a certain items based on the character. all of the web scraping/fetching was done using deepseek since there just was so much data to get, i honestly would've never finished this without its help.
 
 ## Credits
 
