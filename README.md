@@ -20,6 +20,10 @@ i always liked operating system customization (even tho rn it doesn't have many 
 
 ok so i made this app inside of webbandola that is basically a wiki of all items, unlocks with certain characters, bosses etc all sorted by DLCs available, item pools, quality (0 to 4). it is the most useful app in the whole os and u can also see what bosses to kill to unlock certain items and see which unlocks a certain items based on the character. all of the web scraping/fetching was done using deepseek since there just was so much data to get, i honestly would've never finished this without its help.
 
+## The Music Box App
+
+the music box is a music player with a scratchable vinyl record (drag it to scratch, musical notes pop out). it ships with a local library of The Binding of Isaac: Rebirth OST tracks. the audio files live in the `songs/` folder on your machine and are NOT uploaded to the repo, since the OST is copyrighted (by Ridiculon) and hosting it here would get the repo taken down. the list of tracks is in `data/music.js`; to make the player work for you, drop your own copies of the tracks into `songs/` matching the file names there, then open the site locally. on GitHub Pages the tracks show up but won't play, because the files aren't in the repo.
+
 ## Credits
 
 - Shoutout to DeepSeek v4 FLASH for the css animations
