@@ -49,6 +49,10 @@
       <div class="appicon-img"><img src="img/Collectible_Black_Hole_icon.webp" alt="gallery"></div>
       <p class="appicon-label">Gallery</p>
     </div>
+    <div class="appicon" id="musicicon">
+      <div class="appicon-img"><img src="img/Collectible_Angelic_Prism_icon.webp" alt="music"></div>
+      <p class="appicon-label">Music</p>
+    </div>
   </div>  
 
   <div class="window" id="welcome">
@@ -224,6 +228,53 @@
     </div>
   </div>
 
+  <div class="window" id="music" style="display: none;">
+    <div class="windowheader" id="musicheader">
+      <span class="window-title">Music Box</span>
+      <div class="minbutton" id="musicmin" title="Minimize"></div>
+      <div class="closebutton" id="musicclose"></div>
+    </div>
+    <div class="music-app">
+      <audio id="musicAudio"></audio>
+      <div class="music-top">
+        <div class="music-vinyl-wrap" id="musicVinylWrap">
+          <div class="music-vinyl" id="musicVinyl" title="The Music Box">
+            <img class="music-vinyl-label" src="img/Collectible_Angelic_Prism_icon.webp" alt="">
+          </div>
+        </div>
+        <div class="music-now">
+          <div class="music-now-title" id="musicTitle">Nothing playing</div>
+          <div class="music-now-artist" id="musicArtist">Drop songs to begin</div>
+          <div class="music-progress">
+            <span class="music-time" id="musicTimeCur">0:00</span>
+            <div class="music-bar" id="musicBar"><div class="music-bar-fill" id="musicBarFill"></div></div>
+            <span class="music-time" id="musicTimeDur">0:00</span>
+          </div>
+          <div class="music-controls">
+            <button class="music-btn" id="musicPrev" title="Previous">⏮</button>
+            <button class="music-btn music-play" id="musicPlay" title="Play">▶</button>
+            <button class="music-btn" id="musicNext" title="Next">⏭</button>
+            <button class="music-btn" id="musicShuffle" title="Shuffle">🔀</button>
+            <button class="music-btn" id="musicRepeat" title="Repeat">🔁</button>
+            <div class="music-volume">
+              <button class="music-btn" id="musicMute" title="Mute">🔊</button>
+              <input class="music-vol-slider" id="musicVol" type="range" min="0" max="1" step="0.01" value="1">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="music-queue-wrap" id="musicQueueWrap">
+        <div class="music-queue-head">
+          <span>Queue</span>
+          <label class="music-add" for="musicFile">+ Add songs</label>
+          <input type="file" id="musicFile" accept="audio/*" multiple hidden>
+        </div>
+        <div class="music-queue" id="musicQueue"></div>
+        <div class="music-drop" id="musicDrop">Drop your songs here</div>
+      </div>
+    </div>
+  </div>
+
   <div class="window" id="themes" style="display: none;">
     <div class="windowheader" id="themesheader">
       <span class="window-title">Themes</span>
@@ -286,6 +337,8 @@
     <script src="data/photos.js"></script>
     <script src="data/themes.js"></script>
     <script src="data/wallpapers.js"></script>
+    <script src="data/recommended.js"></script>
+    <script src="data/music.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

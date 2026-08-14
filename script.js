@@ -187,7 +187,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "themes"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -424,6 +424,7 @@ var browserScreen = initializeApp("browser");
 var calculatorScreen = initializeApp("calculator");
 var compendiumScreen = initializeApp("compendium");
 var galleryScreen = initializeApp("gallery");
+var musicScreen = initializeApp("music");
 var themesScreen = initializeApp("themes");
 
 
@@ -870,6 +871,9 @@ var POOL_MAIN = [
 ];
 
 function compSectionCfg() {
+  if (compSection === "recommended") {
+    return { label: "Recommended", hasType: false, hasQuality: false, hasDLC: false, hasPools: false, search: [] };
+  }
   if (compSection === "trinkets") {
     return { label: "Trinkets", hasType: false, hasQuality: false, hasDLC: true, search: ["name", "quote"] };
   }
@@ -940,9 +944,22 @@ function compOpenUnlocksHub() {
 function compSectionData() {
   if (compSection === "bosses") return window.ISAAC_BOSSES || [];
   if (compSection === "trinkets") return window.ISAAC_TRINKETS || [];
+  if (compSection === "recommended") return window.ISAAC_RECOMMENDED || [];
   if (compSection === "unlocks") return compUnlockCat ? compUnlockCatData(compUnlockCat) : [];
   return window.ISAAC_ITEMS || [];
 }
+
+var recItemsByName = {};
+var recChallengesByNum = {};
+(function buildRecLookups() {
+  (window.ISAAC_RECOMMENDED || []).forEach(function (r) {
+    if (r.type === "item") {
+      if (r.match) recItemsByName[r.match] = true;
+    } else if (r.type === "challenge") {
+      recChallengesByNum[r.challengeNumber] = true;
+    }
+  });
+})();
 
 function compSetSection(name) {
   compSection = name;
@@ -970,7 +987,7 @@ function compSetSection(name) {
 }
 
 function compRenderTabs() {
-  compTabs.innerHTML = [["items", "Items"], ["trinkets", "Trinkets"], ["unlocks", "Unlocks"], ["bosses", "Bosses"]].map(function (t) {
+  compTabs.innerHTML = [["items", "Items"], ["trinkets", "Trinkets"], ["unlocks", "Unlocks"], ["bosses", "Bosses"], ["recommended", "Recommended"]].map(function (t) {
     return '<button class="compendium-tab' + (compSection === t[0] ? " active" : "") + '" data-section="' + t[0] + '">' + t[1] + '</button>';
   }).join("");
 }
@@ -1087,6 +1104,10 @@ function isTaintedChar(c) {
 }
 
 function compRender() {
+  if (compSection === "recommended") {
+    compRenderRecommended();
+    return;
+  }
   if (compIsUnlocksHub()) {
     compRenderHub();
     return;
@@ -1097,6 +1118,7 @@ function compRender() {
   var isBosses = compSection === "bosses";
   compList.classList.toggle("compendium-list-big", isChars);
   compList.classList.toggle("compendium-list-boss", isBosses);
+  compList.classList.remove("compendium-list-wide");
 
   if (list.length === 0) {
     compList.innerHTML = '<div class="compendium-empty">No ' + compSectionCfg().label.toLowerCase() + ' found.</div>';
@@ -1137,8 +1159,14 @@ function compRender() {
       var extra = isChars && item.bossUnlocks && item.bossUnlocks.length
         ? '<span class="compendium-card-bosses">' + item.bossUnlocks.length + ' boss</span>'
         : "";
+      var isItemList = compSection === "items" || (compSection === "unlocks" && compUnlockCat === "items");
+      var isChallengeList = compSection === "unlocks" && compUnlockCat === "challenges";
+      var recBadge = (isItemList && recItemsByName[item.name]) || (isChallengeList && recChallengesByNum[item.number])
+        ? '<img class="compendium-card-badge" src="img/tbumb-removebg-preview.png" alt="Recommended">'
+        : "";
       return '<button class="compendium-card' + (isChars ? " compendium-card-big" : "") + (compSelectedKey === item.key ? " selected" : "") + '" data-key="' + compEsc(item.key) + '">' +
         img +
+        recBadge +
         '<span class="compendium-card-name">' + compEsc(item.name) + '</span>' +
         q + num + extra +
         '</button>';
@@ -1146,6 +1174,57 @@ function compRender() {
   }
 
   compRenderDetail();
+}
+
+function compRenderRecommended() {
+  var recs = window.ISAAC_RECOMMENDED || [];
+  compList.classList.remove("compendium-list-big", "compendium-list-boss");
+  compList.classList.add("compendium-list-wide");
+  var html = "";
+  [["characters", "Characters"], ["challenges", "Challenges"], ["tainted", "Tainted"]].forEach(function (g) {
+    var list = recs.filter(function (r) {
+      if (g[0] === "challenges") return r.type === "challenge";
+      return r.type === "item" && (g[0] === "tainted" ? r.tainted : !r.tainted);
+    });
+    if (!list.length) return;
+    html += '<div class="compendium-recommend-group">' + g[1] + ' (' + list.length + ')</div>';
+    html += '<div class="compendium-boss-list">' + list.map(compRecommendRow).join("") + '</div>';
+  });
+  compList.innerHTML = html || '<div class="compendium-empty">No recommended unlocks.</div>';
+  compDetail.innerHTML = '<div class="compendium-detail-empty">Recommended unlocks worth pursuing.</div>';
+}
+
+function compRecommendRow(r) {
+  var icon = function (src, cls) {
+    return src
+      ? '<img class="' + cls + '" src="' + compEsc(src) + '" alt="">'
+      : '<span class="compendium-unlock-noicon">?</span>';
+  };
+  var arrow = '<span class="compendium-boss-arrow">\u2192</span>';
+  if (r.type === "challenge") {
+    return '<div class="compendium-boss-row">' +
+      '<a class="compendium-boss-side" href="' + compEsc(compItemWiki(r.challenge)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.challenge) + '">' +
+      icon(r.challengeIcon, "compendium-boss-icon") +
+      '<span class="compendium-boss-name">Challenge #' + r.challengeNumber + ': ' + compEsc(r.challenge) + '</span></a>' +
+      arrow +
+      '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(r.item)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.item) + '">' +
+      icon(r.itemIcon, "compendium-boss-item-icon") +
+      '<span class="compendium-boss-item-name">' + compEsc(r.item) + '</span></a>' +
+      '</div>';
+  }
+  return '<div class="compendium-boss-row">' +
+    '<a class="compendium-boss-side" href="' + compEsc(compItemWiki(r.character)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.character) + '">' +
+    icon(r.characterIcon, "compendium-boss-icon") +
+    '<span class="compendium-boss-name">' + compEsc(r.character) + '</span></a>' +
+    arrow +
+    '<a class="compendium-boss-side" href="' + compEsc(compItemWiki(r.boss)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.boss) + '">' +
+    icon(r.bossIcon, "compendium-boss-item-icon") +
+    '<span class="compendium-boss-name">' + compEsc(r.boss) + '</span></a>' +
+    arrow +
+    '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(r.item)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.item) + '">' +
+    icon(r.itemIcon, "compendium-boss-item-icon") +
+    '<span class="compendium-boss-item-name">' + compEsc(r.item) + '</span></a>' +
+    '</div>';
 }
 
 function compRenderHub() {
@@ -2020,3 +2099,421 @@ function themeInit() {
 themeInit();
 themeRenderChips();
 themeRenderWallpaper();
+
+var musicAudio = document.querySelector("#musicAudio");
+var musicQueue = [];
+var musicIndex = -1;
+var musicShuffleOn = false;
+var musicRepeatMode = 0;
+var musicVolumeKey = "isaacos_music_volume";
+var musicPrefsKey = "isaacos_music_prefs";
+
+try {
+  var musicSavedVol = localStorage.getItem(musicVolumeKey);
+  if (musicSavedVol !== null) musicAudio.volume = Math.min(1, Math.max(0, parseFloat(musicSavedVol) || 1));
+} catch (e) {}
+try {
+  var musicSavedPrefs = JSON.parse(localStorage.getItem(musicPrefsKey) || "{}");
+  musicShuffleOn = !!musicSavedPrefs.shuffle;
+  musicRepeatMode = musicSavedPrefs.repeat || 0;
+} catch (e) {}
+
+function musicSavePrefs() {
+  try { localStorage.setItem(musicPrefsKey, JSON.stringify({ shuffle: musicShuffleOn, repeat: musicRepeatMode })); } catch (e) {}
+}
+function musicSaveVolume() {
+  try { localStorage.setItem(musicVolumeKey, String(musicAudio.volume)); } catch (e) {}
+}
+
+function musicFormat(t) {
+  if (!isFinite(t) || t < 0) return "0:00";
+  var m = Math.floor(t / 60);
+  var s = Math.floor(t % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function musicTrackName(fileName) {
+  return String(fileName).replace(/\.[^.]+$/, "").replace(/_/g, " ");
+}
+
+function musicRenderQueue() {
+  var el = document.querySelector("#musicQueue");
+  el.innerHTML = "";
+  musicQueue.forEach(function (track, i) {
+    var card = document.createElement("button");
+    card.type = "button";
+    var playable = !!track.url;
+    card.className = "music-track" + (i === musicIndex ? " playing" : "") + (playable ? "" : " pending");
+    card.title = playable ? "Play " + track.name : "Add your local file to play this";
+    card.innerHTML =
+      '<span class="music-track-num">' + (i + 1) + "</span>" +
+      '<span class="music-track-name">' + track.name + (track.artist ? ' <span class="music-track-artist">' + track.artist + "</span>" : "") + "</span>" +
+      '<span class="music-track-dur">' + (playable ? musicFormat(track.duration) : "♪") + "</span>";
+    card.addEventListener("click", function () {
+      if (!track.url) {
+        musicHintAdd();
+        return;
+      }
+      musicPlayIndex(i);
+    });
+    el.appendChild(card);
+  });
+  document.querySelector("#musicDrop").style.display = musicQueue.length ? "none" : "flex";
+}
+
+function musicPlayIndex(i) {
+  if (i < 0 || i >= musicQueue.length) return;
+  musicIndex = i;
+  var track = musicQueue[i];
+  if (!track.url) return;
+  musicAudio.src = track.url;
+  musicAudio.play().catch(function () {});
+  musicRenderQueue();
+  document.querySelector("#musicTitle").textContent = track.name;
+  document.querySelector("#musicArtist").textContent = track.artist || "Track " + (i + 1) + " of " + musicQueue.length;
+  musicUpdatePlayBtn();
+}
+
+function musicUpdatePlayBtn() {
+  var btn = document.querySelector("#musicPlay");
+  btn.textContent = musicAudio.paused ? "▶" : "❚❚";
+  btn.title = musicAudio.paused ? "Play" : "Pause";
+}
+
+function musicTogglePlay() {
+  if (musicQueue.length === 0) return;
+  var target = musicQueue[musicIndex < 0 ? 0 : musicIndex];
+  if (musicAudio.paused) {
+    if (!musicAudio.src) {
+      if (!target || !target.url) {
+        var firstPlayable = -1;
+        musicQueue.forEach(function (track, i) {
+          if (firstPlayable < 0 && track.url) firstPlayable = i;
+        });
+        if (firstPlayable >= 0) musicPlayIndex(firstPlayable);
+        else musicHintAdd();
+        musicUpdatePlayBtn();
+        return;
+      }
+      musicPlayIndex(musicIndex < 0 ? 0 : musicIndex);
+    } else {
+      musicAudio.play().catch(function () {});
+    }
+  } else {
+    musicAudio.pause();
+  }
+  musicUpdatePlayBtn();
+}
+
+function musicNext(auto) {
+  if (musicQueue.length === 0) return;
+  if (musicRepeatMode && auto) return;
+  var i = musicIndex;
+  if (musicShuffleOn && musicQueue.length > 1) {
+    do { i = Math.floor(Math.random() * musicQueue.length); } while (i === musicIndex);
+  } else {
+    i = (i + 1) % musicQueue.length;
+  }
+  musicPlayIndex(i);
+}
+
+function musicPrev() {
+  if (musicQueue.length === 0) return;
+  if (musicAudio.currentTime > 3) {
+    musicAudio.currentTime = 0;
+    return;
+  }
+  var i = musicIndex;
+  if (musicShuffleOn && musicQueue.length > 1) {
+    do { i = Math.floor(Math.random() * musicQueue.length); } while (i === musicIndex);
+  } else {
+    i = (i - 1 + musicQueue.length) % musicQueue.length;
+  }
+  musicPlayIndex(i);
+}
+
+function musicProbeDuration(track) {
+  var probe = document.createElement("audio");
+  probe.preload = "metadata";
+  probe.src = track.url;
+  probe.addEventListener("loadedmetadata", function () {
+    track.duration = probe.duration || 0;
+    musicRenderQueue();
+  });
+}
+
+function musicFindLibraryTrack(name) {
+  var clean = String(name)
+    .toLowerCase()
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/^\d+\s*[-.]?\s*/, "")
+    .trim();
+  var best = null;
+  musicQueue.forEach(function (track) {
+    if (!track.library || track.url) return;
+    var tn = track.name.toLowerCase();
+    if (clean.indexOf(tn) !== -1 || tn.indexOf(clean) !== -1) best = track;
+  });
+  return best;
+}
+
+function musicAddFiles(fileList) {
+  var matched = false;
+  Array.prototype.forEach.call(fileList, function (file) {
+    if (file.type && file.type.indexOf("audio/") !== 0) return;
+    var match = musicFindLibraryTrack(file.name);
+    if (match) {
+      match.url = URL.createObjectURL(file);
+      match.duration = 0;
+      match.file = file;
+      matched = true;
+      return;
+    }
+    musicQueue.push({
+      url: URL.createObjectURL(file),
+      name: musicTrackName(file.name),
+      duration: 0,
+      file: file,
+      library: false
+    });
+  });
+  musicQueue.forEach(function (track) {
+    if (track.url && !track.duration) musicProbeDuration(track);
+  });
+  musicRenderQueue();
+  if (musicIndex < 0 && musicQueue.length) {
+    var firstPlayable = -1;
+    musicQueue.forEach(function (track, i) {
+      if (firstPlayable < 0 && track.url) firstPlayable = i;
+    });
+    if (firstPlayable >= 0) musicPlayIndex(firstPlayable);
+  }
+}
+
+function musicHintAdd() {
+  var add = document.querySelector(".music-add");
+  add.classList.remove("hint");
+  void add.offsetWidth;
+  add.classList.add("hint");
+  setTimeout(function () { add.classList.remove("hint"); }, 1600);
+}
+
+musicAudio.addEventListener("timeupdate", function () {
+  document.querySelector("#musicTimeCur").textContent = musicFormat(musicAudio.currentTime);
+  var dur = musicAudio.duration || 0;
+  document.querySelector("#musicBarFill").style.width = (dur ? (musicAudio.currentTime / dur) * 100 : 0) + "%";
+});
+musicAudio.addEventListener("loadedmetadata", function () {
+  var track = musicQueue[musicIndex];
+  if (track) track.duration = musicAudio.duration || 0;
+  document.querySelector("#musicTimeDur").textContent = musicFormat(musicAudio.duration);
+  musicRenderQueue();
+});
+musicAudio.addEventListener("play", function () {
+  document.querySelector("#musicVinyl").classList.add("spinning");
+  musicUpdatePlayBtn();
+});
+musicAudio.addEventListener("pause", function () {
+  document.querySelector("#musicVinyl").classList.remove("spinning");
+  musicUpdatePlayBtn();
+});
+musicAudio.addEventListener("ended", function () {
+  if (musicRepeatMode) {
+    musicAudio.currentTime = 0;
+    musicAudio.play().catch(function () {});
+    return;
+  }
+  musicNext(true);
+});
+musicAudio.addEventListener("volumechange", function () {
+  var muted = musicAudio.muted || musicAudio.volume === 0;
+  document.querySelector("#musicMute").textContent = muted ? "🔇" : (musicAudio.volume < 0.5 ? "🔉" : "🔊");
+  document.querySelector("#musicVol").value = musicAudio.muted ? 0 : musicAudio.volume;
+  musicSaveVolume();
+});
+
+document.querySelector("#musicPlay").addEventListener("click", musicTogglePlay);
+document.querySelector("#musicNext").addEventListener("click", function () { musicNext(false); });
+document.querySelector("#musicPrev").addEventListener("click", musicPrev);
+document.querySelector("#musicShuffle").addEventListener("click", function () {
+  musicShuffleOn = !musicShuffleOn;
+  this.classList.toggle("active", musicShuffleOn);
+  musicSavePrefs();
+});
+document.querySelector("#musicRepeat").addEventListener("click", function () {
+  musicRepeatMode = musicRepeatMode ? 0 : 1;
+  this.classList.toggle("active", musicRepeatMode > 0);
+  this.title = musicRepeatMode ? "Repeat one" : "Repeat off";
+  musicSavePrefs();
+});
+document.querySelector("#musicMute").addEventListener("click", function () {
+  musicAudio.muted = !musicAudio.muted;
+});
+document.querySelector("#musicVol").addEventListener("input", function () {
+  musicAudio.volume = parseFloat(this.value);
+  if (musicAudio.volume > 0) musicAudio.muted = false;
+});
+document.querySelector("#musicBar").addEventListener("click", function (e) {
+  if (!musicAudio.duration) return;
+  var rect = this.getBoundingClientRect();
+  var ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  musicAudio.currentTime = ratio * musicAudio.duration;
+});
+document.querySelector("#musicFile").addEventListener("change", function () {
+  musicAddFiles(this.files);
+  this.value = "";
+});
+var musicDropWrap = document.querySelector("#musicQueueWrap");
+musicDropWrap.addEventListener("dragover", function (e) {
+  e.preventDefault();
+  this.classList.add("drag-over");
+});
+musicDropWrap.addEventListener("dragleave", function () {
+  this.classList.remove("drag-over");
+});
+musicDropWrap.addEventListener("drop", function (e) {
+  e.preventDefault();
+  this.classList.remove("drag-over");
+  musicAddFiles(e.dataTransfer.files);
+});
+document.addEventListener("keydown", function (e) {
+  var target = e.target;
+  var typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+  var musicWindow = document.querySelector("#music");
+  if (e.code === "Space" && !typing && musicWindow && musicWindow.style.display !== "none") {
+    e.preventDefault();
+    musicTogglePlay();
+  }
+});
+
+var musicScratchCtx = null;
+var musicScratchSrc = null;
+var musicScratchGain = null;
+var musicScratchFilter = null;
+
+function musicScratchEnsure() {
+  if (musicScratchCtx) {
+    if (musicScratchCtx.state === "suspended") musicScratchCtx.resume();
+    return;
+  }
+  var Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  musicScratchCtx = new Ctx();
+  musicScratchFilter = musicScratchCtx.createBiquadFilter();
+  musicScratchFilter.type = "bandpass";
+  musicScratchFilter.frequency.value = 1900;
+  musicScratchFilter.Q.value = 1.4;
+  musicScratchGain = musicScratchCtx.createGain();
+  musicScratchGain.gain.value = 0;
+  musicScratchFilter.connect(musicScratchGain);
+  musicScratchGain.connect(musicScratchCtx.destination);
+}
+
+function musicScratchStart() {
+  musicScratchEnsure();
+  if (!musicScratchCtx) return;
+  var len = Math.floor(musicScratchCtx.sampleRate * 2);
+  var buf = musicScratchCtx.createBuffer(1, len, musicScratchCtx.sampleRate);
+  var d = buf.getChannelData(0);
+  for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  musicScratchSrc = musicScratchCtx.createBufferSource();
+  musicScratchSrc.buffer = buf;
+  musicScratchSrc.loop = true;
+  musicScratchSrc.playbackRate.value = 0;
+  musicScratchSrc.connect(musicScratchFilter);
+  musicScratchSrc.start();
+}
+
+function musicScratchMove(rate) {
+  if (!musicScratchSrc || !musicScratchGain) return;
+  musicScratchSrc.playbackRate.setTargetAtTime(Math.max(-5, Math.min(5, rate)), musicScratchCtx.currentTime, 0.015);
+  musicScratchGain.gain.setTargetAtTime(0.12, musicScratchCtx.currentTime, 0.01);
+}
+
+function musicScratchEnd() {
+  if (!musicScratchSrc) return;
+  musicScratchGain.gain.setTargetAtTime(0, musicScratchCtx.currentTime, 0.03);
+  var src = musicScratchSrc;
+  src.stop(musicScratchCtx.currentTime + 0.12);
+  musicScratchSrc = null;
+}
+
+var musicVinyl = document.querySelector("#musicVinyl");
+var musicVinylWrap = document.querySelector("#musicVinylWrap");
+var musicScratchActive = false;
+var musicScratchAngle = 0;
+var musicScratchLastX = 0;
+var musicScratchLastT = 0;
+var musicScratchWasPlaying = false;
+
+function musicNoteBurst() {
+  var note = document.createElement("span");
+  note.className = "music-note";
+  note.textContent = Math.random() < 0.5 ? "♪" : "♫";
+  note.style.left = (86 + Math.random() * 18) + "px";
+  note.style.top = (86 + Math.random() * 18) + "px";
+  note.style.fontSize = (14 + Math.random() * 12) + "px";
+  musicVinylWrap.appendChild(note);
+  setTimeout(function () { if (note.parentNode) note.parentNode.removeChild(note); }, 950);
+}
+
+musicVinyl.addEventListener("pointerdown", function (e) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  musicVinyl.setPointerCapture(e.pointerId);
+  musicScratchActive = true;
+  musicScratchWasPlaying = !musicAudio.paused;
+  if (musicScratchWasPlaying) musicAudio.pause();
+  musicScratchAngle = musicVinyl.scratchAngle || 0;
+  musicVinyl.style.transition = "none";
+  musicVinyl.style.animation = "none";
+  musicVinyl.style.transform = "rotate(" + musicScratchAngle + "deg)";
+  musicScratchLastX = e.clientX;
+  musicScratchLastT = performance.now();
+  musicScratchStart();
+});
+
+musicVinyl.addEventListener("pointermove", function (e) {
+  if (!musicScratchActive) return;
+  var now = performance.now();
+  var dt = Math.max(1, now - musicScratchLastT);
+  var dx = e.clientX - musicScratchLastX;
+  musicScratchAngle += dx * 2;
+  musicVinyl.style.transform = "rotate(" + musicScratchAngle + "deg)";
+  musicScratchMove((dx / dt) * 4);
+  if (Math.abs(dx) > 4) musicNoteBurst();
+  musicScratchLastX = e.clientX;
+  musicScratchLastT = now;
+});
+
+function musicScratchEndAll() {
+  if (!musicScratchActive) return;
+  musicScratchActive = false;
+  musicScratchEnd();
+  musicVinyl.scratchAngle = musicScratchAngle;
+  musicVinyl.style.transition = "";
+  musicVinyl.style.animation = "";
+  musicVinyl.style.animationDelay = -(musicScratchAngle / 360) * 4 + "s";
+  musicVinyl.style.transform = "";
+  if (musicScratchWasPlaying) musicAudio.play().catch(function () {});
+}
+
+musicVinyl.addEventListener("pointerup", musicScratchEndAll);
+musicVinyl.addEventListener("pointercancel", musicScratchEndAll);
+
+document.querySelector("#musicShuffle").classList.toggle("active", musicShuffleOn);
+var musicRepBtn = document.querySelector("#musicRepeat");
+musicRepBtn.classList.toggle("active", musicRepeatMode > 0);
+musicRepBtn.title = musicRepeatMode ? "Repeat one" : "Repeat off";
+document.querySelector("#musicVol").value = musicAudio.muted ? 0 : musicAudio.volume;
+if (typeof ISAAC_TRACKS !== "undefined") {
+  ISAAC_TRACKS.forEach(function (track) {
+    musicQueue.push({ url: track.file ? "songs/" + track.file : null, name: track.name, artist: track.artist || "", duration: 0, file: track.file || null, library: true });
+  });
+  musicQueue.forEach(function (track) {
+    if (track.url) musicProbeDuration(track);
+  });
+}
+musicUpdatePlayBtn();
+musicRenderQueue();
