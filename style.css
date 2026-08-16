@@ -379,40 +379,76 @@ button {
 }
 
 .closebutton {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #d02020;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--blood);
   border: 1px solid #000;
+  box-shadow: 1px 1px 0 #000;
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
+}
+
+.closebutton::before,
+.closebutton::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 2px;
+  background: #0a0605;
+}
+
+.closebutton::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.closebutton::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .closebutton:hover {
-  background: #e03030;
+  background: var(--blood-hover);
 }
 
 .closebutton:active {
-  background: #a01414;
+  box-shadow: none;
+  transform: translate(1px, 1px);
 }
 
 .minbutton {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #b4872b;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--ui-card);
   border: 1px solid #000;
+  box-shadow: 1px 1px 0 #000;
   cursor: pointer;
   flex-shrink: 0;
   margin-right: 8px;
+  position: relative;
+}
+
+.minbutton::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 3px;
+  right: 3px;
+  height: 2px;
+  background: var(--ui-text);
+  opacity: 0.7;
 }
 
 .minbutton:hover {
-  background: #8d7038;
+  background: var(--ui-card-hover);
 }
 
 .minbutton:active {
-  background: #654e24;
+  box-shadow: none;
+  transform: translate(1px, 1px);
 }
 
 .openbutton {
@@ -975,11 +1011,11 @@ button {
 }
 
 .calc-op {
-  background: #33220f;
+  background: color-mix(in srgb, var(--blood) 55%, #000);
 }
 
 .calc-op:hover {
-  background: #4a3016;
+  background: color-mix(in srgb, var(--blood) 70%, #000);
 }
 
 .calc-eq {
@@ -2181,15 +2217,15 @@ button {
 .themes-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .theme-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 6px;
+  gap: 4px;
+  padding: 5px;
   background: var(--ui-card);
   border: 1px solid #000;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--blood) 30%, transparent);
@@ -2207,8 +2243,8 @@ button {
 }
 
 .theme-swatch {
-  width: 42px;
-  height: 30px;
+  width: 40px;
+  height: 28px;
   border-radius: 5px;
   border: 1px solid #000;
 }

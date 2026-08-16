@@ -1900,12 +1900,18 @@ function themesGetSavedColors(id) {
 function themeRenderChips() {
   if (!themesPresetChips || !themesSavedChips) return;
   var current = localStorage.getItem(themesKey) || "isaac";
-  themesPresetChips.innerHTML = themesList.map(function (t) {
-    return '<button class="theme-card' + (t.id === current ? " active" : "") + '" data-theme="' + t.id + '">' +
-      '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (t.colors["--blood-hover"] || t.colors["--blood"]) + ', ' + (t.colors["--blood-dark"] || t.colors["--blood"]) + ');"></div>' +
-      '<span class="theme-name">' + compEsc(t.name) + '</span>' +
-      '</button>';
-  }).join("");
+  var custom = currentColors || (themesList[0] ? themesList[0].colors : {});
+  themesPresetChips.innerHTML =
+    themesList.map(function (t) {
+      return '<button class="theme-card' + (t.id === current ? " active" : "") + '" data-theme="' + t.id + '">' +
+        '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (t.colors["--blood-hover"] || t.colors["--blood"]) + ', ' + (t.colors["--blood-dark"] || t.colors["--blood"]) + ');"></div>' +
+        '<span class="theme-name">' + compEsc(t.name) + '</span>' +
+        '</button>';
+    }).join("") +
+    '<button class="theme-card' + (current === "custom" ? " active" : "") + '" data-theme="custom">' +
+      '<div class="theme-swatch" style="background: linear-gradient(135deg, ' + (custom["--blood-hover"] || custom["--blood"]) + ', ' + (custom["--blood-dark"] || custom["--blood"]) + ');"></div>' +
+      '<span class="theme-name">Custom</span>' +
+    '</button>';
 
   var saved = themesSavedList();
   themesSavedChips.innerHTML = saved.length
@@ -1920,6 +1926,13 @@ function themeRenderChips() {
   themesPresetChips.querySelectorAll(".theme-card").forEach(function (card) {
     card.addEventListener("click", function () {
       var id = card.getAttribute("data-theme");
+      if (id === "custom") {
+        applyThemeVars(currentColors);
+        sliderFromColors(currentColors);
+        localStorage.setItem(themesKey, "custom");
+        themeRenderChips();
+        return;
+      }
       var theme = themesList.find(function (t) { return t.id === id; });
       if (!theme) return;
       applyThemeVars(theme.colors);
@@ -1984,17 +1997,19 @@ if (themesTabs && themesTabs.length && themesColors && themesWallpaper) {
 
 if (themesRandom) {
   themesRandom.addEventListener("click", function () {
-    var next = themesList[Math.floor(Math.random() * themesList.length)];
-    applyThemeVars(next.colors);
-    currentColors = next.colors;
-    localStorage.setItem(themesKey, next.id);
-    localStorage.removeItem(themesCustomKey);
-    sliderFromColors(next.colors);
+    var h = Math.floor(Math.random() * 360);
+    var s = Math.floor(Math.random() * 46) + 40;
+    var l = Math.floor(Math.random() * 22) + 14;
+    var colors = accentColorsFromHsl(h, s, l);
+    applyThemeVars(colors);
+    currentColors = colors;
+    localStorage.setItem(themesKey, "custom");
+    localStorage.setItem(themesCustomKey, JSON.stringify(colors));
+    sliderFromColors(colors);
     themeRenderChips();
 
-    var accentH = rgbToHsl(hexToRgb(next.colors["--blood"])).h;
     var bgH = Math.floor(Math.random() * 360);
-    if (Math.abs(bgH - accentH) < 40) bgH = (bgH + 180) % 360;
+    if (Math.abs(bgH - h) < 40) bgH = (bgH + 180) % 360;
     var bgSat = Math.floor(Math.random() * 35) + 8;
     var bgLight = Math.floor(Math.random() * 16) + 12;
     var bg = bgColorsFromHsl(bgH, bgSat, bgLight);
