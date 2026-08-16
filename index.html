@@ -258,7 +258,16 @@
             <button class="music-btn" id="musicRepeat" title="Repeat">🔁</button>
             <div class="music-volume">
               <button class="music-btn" id="musicMute" title="Mute">🔊</button>
-              <input class="music-vol-slider" id="musicVol" type="range" min="0" max="1" step="0.01" value="1">
+              <div class="eslider" id="musicVol">
+                <div class="eslider-wrap">
+                  <span class="eslider-icon eslider-left">−</span>
+                  <div class="eslider-root">
+                    <div class="eslider-track"><div class="eslider-range"></div></div>
+                  </div>
+                  <span class="eslider-icon eslider-right">+</span>
+                </div>
+                <span class="eslider-value"></span>
+              </div>
             </div>
           </div>
         </div>

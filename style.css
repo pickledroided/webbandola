@@ -2596,9 +2596,90 @@ button {
   margin-left: auto;
 }
 
-.music-vol-slider {
-  width: 70px;
-  accent-color: var(--blood);
+.eslider {
+  position: relative;
+  width: 110px;
+  display: flex;
+  align-items: center;
+}
+
+.eslider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  touch-action: none;
+  user-select: none;
+  opacity: 0.75;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.eslider:hover .eslider-wrap {
+  transform: scale(1.08);
+  opacity: 1;
+}
+
+.eslider-root {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  padding: 14px 0;
+}
+
+.eslider-root:active {
+  cursor: grabbing;
+}
+
+.eslider-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(128, 128, 128, 0.4);
+  transition: height 0.2s ease;
+}
+
+.eslider:hover .eslider-track {
+  height: 9px;
+}
+
+.eslider-range {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background: var(--blood);
+  border-radius: 9999px;
+}
+
+.eslider-icon {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  color: #888;
+  font-size: 18px;
+  will-change: transform;
+}
+
+.eslider-value {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ui-dim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.eslider:hover .eslider-value {
+  opacity: 1;
 }
 
 .music-queue-wrap {

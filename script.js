@@ -2329,7 +2329,7 @@ musicAudio.addEventListener("ended", function () {
 musicAudio.addEventListener("volumechange", function () {
   var muted = musicAudio.muted || musicAudio.volume === 0;
   document.querySelector("#musicMute").textContent = muted ? "🔇" : (musicAudio.volume < 0.5 ? "🔉" : "🔊");
-  document.querySelector("#musicVol").value = musicAudio.muted ? 0 : musicAudio.volume;
+  musicVolSync();
   musicSaveVolume();
 });
 
@@ -2350,10 +2350,93 @@ document.querySelector("#musicRepeat").addEventListener("click", function () {
 document.querySelector("#musicMute").addEventListener("click", function () {
   musicAudio.muted = !musicAudio.muted;
 });
-document.querySelector("#musicVol").addEventListener("input", function () {
-  musicAudio.volume = parseFloat(this.value);
-  if (musicAudio.volume > 0) musicAudio.muted = false;
+var musicVolSlider = document.querySelector("#musicVol");
+var musicVolRoot = musicVolSlider.querySelector(".eslider-root");
+var musicVolTrack = musicVolSlider.querySelector(".eslider-track");
+var musicVolRange = musicVolSlider.querySelector(".eslider-range");
+var musicVolValue = musicVolSlider.querySelector(".eslider-value");
+var musicVolLeft = musicVolSlider.querySelector(".eslider-left");
+var musicVolRight = musicVolSlider.querySelector(".eslider-right");
+var musicVolVal = musicAudio.muted ? 0 : musicAudio.volume * 100;
+var musicVolOverflow = 0;
+var musicVolVel = 0;
+var musicVolDrag = false;
+var musicVolOriginRight = false;
+var musicVolRaf = null;
+var musicVolOverflowMax = 50;
+
+function musicVolDecay(value, max) {
+  if (!max) return 0;
+  var entry = value / max;
+  return (2 * (1 / (1 + Math.exp(-entry)) - 0.5)) * max;
+}
+
+function musicVolSync() {
+  musicVolVal = (musicAudio.muted ? 0 : musicAudio.volume) * 100;
+  musicVolRange.style.width = musicVolVal + "%";
+  musicVolValue.textContent = Math.round(musicVolVal);
+}
+
+function musicVolElastic() {
+  var w = musicVolRoot.getBoundingClientRect().width || 1;
+  var scaleX = 1 + musicVolOverflow / w;
+  var scaleY = 1 - (0.2 * musicVolOverflow) / musicVolOverflowMax;
+  musicVolTrack.style.transformOrigin = musicVolOriginRight ? "right" : "left";
+  musicVolTrack.style.transform = "scale(" + scaleX + "," + scaleY + ")";
+  var pushingLeft = musicVolOriginRight && musicVolOverflow > 0;
+  var pushingRight = !musicVolOriginRight && musicVolOverflow > 0;
+  musicVolLeft.style.transform = pushingLeft ? "scale(1.2) translateX(" + (-musicVolOverflow) + "px)" : "scale(1)";
+  musicVolRight.style.transform = pushingRight ? "scale(1.2) translateX(" + musicVolOverflow + "px)" : "scale(1)";
+}
+
+function musicVolLoop() {
+  if (!musicVolDrag) {
+    var force = (0 - musicVolOverflow) * 0.22;
+    musicVolVel = (musicVolVel + force) * 0.72;
+    musicVolOverflow += musicVolVel;
+    musicVolElastic();
+    if (Math.abs(musicVolOverflow) < 0.1 && Math.abs(musicVolVel) < 0.05) {
+      musicVolOverflow = 0;
+      musicVolVel = 0;
+      musicVolElastic();
+      musicVolRaf = null;
+      return;
+    }
+  }
+  musicVolRaf = requestAnimationFrame(musicVolLoop);
+}
+
+function musicVolSetPx(clientX) {
+  var rect = musicVolRoot.getBoundingClientRect();
+  var v = ((clientX - rect.left) / rect.width) * 100;
+  musicVolVal = Math.min(100, Math.max(0, v));
+  musicAudio.volume = musicVolVal / 100;
+  if (musicVolVal > 0) musicAudio.muted = false;
+  musicVolRange.style.width = musicVolVal + "%";
+  musicVolValue.textContent = Math.round(musicVolVal);
+  musicVolOriginRight = clientX < rect.left + rect.width / 2;
+  if (clientX < rect.left) musicVolOverflow = musicVolDecay(rect.left - clientX, musicVolOverflowMax);
+  else if (clientX > rect.right) musicVolOverflow = musicVolDecay(clientX - rect.right, musicVolOverflowMax);
+  else musicVolOverflow = 0;
+  musicVolElastic();
+}
+
+musicVolRoot.addEventListener("pointerdown", function (e) {
+  musicVolDrag = true;
+  musicVolVel = 0;
+  musicVolSetPx(e.clientX);
+  this.setPointerCapture(e.pointerId);
+  if (!musicVolRaf) musicVolRaf = requestAnimationFrame(musicVolLoop);
 });
+musicVolRoot.addEventListener("pointermove", function (e) {
+  if (musicVolDrag) musicVolSetPx(e.clientX);
+});
+function musicVolEnd() {
+  musicVolDrag = false;
+}
+musicVolRoot.addEventListener("pointerup", musicVolEnd);
+musicVolRoot.addEventListener("pointercancel", musicVolEnd);
+musicVolRoot.addEventListener("lostpointercapture", musicVolEnd);
 document.querySelector("#musicBar").addEventListener("click", function (e) {
   if (!musicAudio.duration) return;
   var rect = this.getBoundingClientRect();
@@ -2402,8 +2485,8 @@ function musicScratchEnsure() {
   musicScratchCtx = new Ctx();
   musicScratchFilter = musicScratchCtx.createBiquadFilter();
   musicScratchFilter.type = "bandpass";
-  musicScratchFilter.frequency.value = 1900;
-  musicScratchFilter.Q.value = 1.4;
+  musicScratchFilter.frequency.value = 900;
+  musicScratchFilter.Q.value = 1.0;
   musicScratchGain = musicScratchCtx.createGain();
   musicScratchGain.gain.value = 0;
   musicScratchFilter.connect(musicScratchGain);
@@ -2428,7 +2511,7 @@ function musicScratchStart() {
 function musicScratchMove(rate) {
   if (!musicScratchSrc || !musicScratchGain) return;
   musicScratchSrc.playbackRate.setTargetAtTime(Math.max(-5, Math.min(5, rate)), musicScratchCtx.currentTime, 0.015);
-  musicScratchGain.gain.setTargetAtTime(0.12, musicScratchCtx.currentTime, 0.01);
+  musicScratchGain.gain.setTargetAtTime(0.07, musicScratchCtx.currentTime, 0.01);
 }
 
 function musicScratchEnd() {
@@ -2506,7 +2589,7 @@ document.querySelector("#musicShuffle").classList.toggle("active", musicShuffleO
 var musicRepBtn = document.querySelector("#musicRepeat");
 musicRepBtn.classList.toggle("active", musicRepeatMode > 0);
 musicRepBtn.title = musicRepeatMode ? "Repeat one" : "Repeat off";
-document.querySelector("#musicVol").value = musicAudio.muted ? 0 : musicAudio.volume;
+musicVolSync();
 if (typeof ISAAC_TRACKS !== "undefined") {
   ISAAC_TRACKS.forEach(function (track) {
     musicQueue.push({ url: track.file ? "songs/" + track.file : null, name: track.name, artist: track.artist || "", duration: 0, file: track.file || null, library: true });
