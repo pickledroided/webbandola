@@ -16,6 +16,17 @@
       <span class="openbutton" id="welcomeopen">IsaacOS</span>
     </div>
     <div class="topbar-right">
+      <span class="topbar-item topbar-battery" title="Battery">
+        <img src="img/Collectible_Charged_Baby_icon.webp" alt="battery">
+        <span>100%</span>
+      </span>
+      <span class="topbar-item topbar-wifi" title="Wi-Fi">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+          <path d="M12 20h.01"></path>
+        </svg>
+      </span>
       <span class="time" id="timeElement">...</span>
     </div>
   </div>
@@ -52,6 +63,10 @@
     <div class="appicon" id="musicicon">
       <div class="appicon-img"><img src="img/Collectible_Angelic_Prism_icon.webp" alt="music"></div>
       <p class="appicon-label">Music</p>
+    </div>
+    <div class="appicon" id="settingsicon">
+      <div class="appicon-img"><img src="img/Collectible_Chaos_icon.webp" alt="settings"></div>
+      <p class="appicon-label">Settings</p>
     </div>
   </div>  
 
@@ -333,6 +348,85 @@
             <div class="themes-grid" id="themesWallpaperGrid"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+<div class="window" id="settings" style="display: none;">
+    <div class="windowheader" id="settingsheader">
+      <span class="window-title">Settings</span>
+      <div class="minbutton" id="settingsmin" title="Minimize"></div>
+      <div class="closebutton" id="settingsclose"></div>
+    </div>
+    <div class="themes-app settings-app">
+      <nav class="settings-nav">
+        <div class="settings-nav-head">
+          <img src="img/Collectible_Chaos_icon.webp" alt="">
+          <span class="settings-nav-title">SETTINGS</span>
+        </div>
+        <button class="settings-cat active" data-target="settingsPanelSystem">
+          <span class="cat-caret">▸</span>System
+        </button>
+        <button class="settings-cat" data-target="settingsPanelPersonalization">
+          <span class="cat-caret">▸</span>Personalization
+        </button>
+        <button class="settings-cat" data-target="settingsPanelData">
+          <span class="cat-caret">▸</span>Data
+        </button>
+        <button class="settings-cat" data-target="settingsPanelAbout">
+          <span class="cat-caret">▸</span>About
+        </button>
+      </nav>
+      <div class="settings-panels">
+        <section class="settings-panel active" id="settingsPanelSystem">
+          <h3 class="settings-panel-title">System</h3>
+          <div class="themes-section-label">Audio</div>
+          <div class="slider-row">
+            <span class="slider-label">Volume</span>
+            <input type="range" min="0" max="100" value="100" id="settingsVolume">
+            <span class="slider-value" id="settingsVolumeVal">100</span>
+          </div>
+          <div class="settings-toggle-row">
+            <span class="settings-toggle-label">Mute</span>
+            <button class="settings-toggle" id="settingsMute"></button>
+          </div>
+        </section>
+        <section class="settings-panel" id="settingsPanelPersonalization">
+          <h3 class="settings-panel-title">Personalization</h3>
+          <div class="themes-section-label">Desktop icons</div>
+          <div class="settings-toggle-row">
+            <span class="settings-toggle-label">Show labels</span>
+            <button class="settings-toggle" id="settingsLabels"></button>
+          </div>
+          <div class="themes-section-label">Topbar</div>
+          <div class="settings-toggle-row">
+            <span class="settings-toggle-label">Battery</span>
+            <button class="settings-toggle" id="settingsBattery"></button>
+          </div>
+          <div class="settings-toggle-row">
+            <span class="settings-toggle-label">Wi-Fi</span>
+            <button class="settings-toggle" id="settingsWifi"></button>
+          </div>
+          <div class="settings-toggle-row">
+            <span class="settings-toggle-label">Clock</span>
+            <button class="settings-toggle" id="settingsClock"></button>
+          </div>
+        </section>
+        <section class="settings-panel" id="settingsPanelData">
+          <h3 class="settings-panel-title">Data</h3>
+          <div class="themes-section-label">Local storage</div>
+          <button class="themes-action" id="settingsResetPositions">Reset icon positions</button>
+          <button class="themes-action danger" id="settingsResetAll">Reset all data</button>
+          <p class="settings-note">"Reset all data" clears every saved preference and reloads the OS.</p>
+        </section>
+        <section class="settings-panel" id="settingsPanelAbout">
+          <h3 class="settings-panel-title">About</h3>
+          <div class="settings-about">
+            <p class="settings-about-name">Webbandola — IsaacOS</p>
+            <p>An operating system built with nothing but HTML, CSS and JS.</p>
+            <a class="settings-link" href="https://github.com/pickledroided/webbandola" target="_blank" rel="noopener">GitHub →</a>
+          </div>
+        </section>
       </div>
     </div>
   </div>

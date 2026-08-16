@@ -187,7 +187,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -426,6 +426,7 @@ var compendiumScreen = initializeApp("compendium");
 var galleryScreen = initializeApp("gallery");
 var musicScreen = initializeApp("music");
 var themesScreen = initializeApp("themes");
+var settingsScreen = initializeApp("settings");
 
 
 var calcDisplay = document.querySelector("#calcDisplay");
@@ -2615,3 +2616,152 @@ if (typeof ISAAC_TRACKS !== "undefined") {
 }
 musicUpdatePlayBtn();
 musicRenderQueue();
+
+// --- Settings app ---
+
+var settingsTopbarKey = "isaacos_settings_topbar";
+var settingsLabelsKey = "isaacos_settings_labels";
+var settingsMuteKey = "isaacos_settings_muted";
+
+var settingsVol = document.querySelector("#settingsVolume");
+var settingsVolVal = document.querySelector("#settingsVolumeVal");
+var settingsMute = document.querySelector("#settingsMute");
+var settingsLabels = document.querySelector("#settingsLabels");
+var settingsBattery = document.querySelector("#settingsBattery");
+var settingsWifi = document.querySelector("#settingsWifi");
+var settingsClock = document.querySelector("#settingsClock");
+
+function settingsTopbarState() {
+  var def = { battery: true, wifi: true, clock: true };
+  try {
+    var saved = JSON.parse(localStorage.getItem(settingsTopbarKey) || "{}");
+    for (var k in def) {
+      if (typeof saved[k] !== "boolean") saved[k] = def[k];
+    }
+    return saved;
+  } catch (e) {
+    return def;
+  }
+}
+
+function settingsApplyTopbar() {
+  var st = settingsTopbarState();
+  var battery = document.querySelector(".topbar-battery");
+  var wifi = document.querySelector(".topbar-wifi");
+  var clock = document.querySelector("#timeElement");
+  function show(el, on) { if (el) el.style.display = on ? "" : "none"; }
+  show(battery, st.battery !== false);
+  show(wifi, st.wifi !== false);
+  show(clock, st.clock !== false);
+}
+
+function settingsTopbarSync() {
+  var st = settingsTopbarState();
+  if (settingsBattery) settingsBattery.classList.toggle("on", st.battery !== false);
+  if (settingsWifi) settingsWifi.classList.toggle("on", st.wifi !== false);
+  if (settingsClock) settingsClock.classList.toggle("on", st.clock !== false);
+}
+
+function settingsApplyLabels() {
+  var hidden = localStorage.getItem(settingsLabelsKey) === "1";
+  osContainer.classList.toggle("no-labels", hidden);
+  if (settingsLabels) settingsLabels.classList.toggle("on", hidden);
+}
+
+function settingsApplyAudio() {
+  if (!settingsVol || !settingsVolVal || !musicAudio) return;
+  try {
+    var saved = localStorage.getItem(musicVolumeKey);
+    var vol = saved !== null ? (parseFloat(saved) || 1) : 1;
+    vol = Math.min(1, Math.max(0, vol));
+    musicAudio.volume = vol;
+    settingsVol.value = Math.round(vol * 100);
+    settingsVolVal.textContent = Math.round(vol * 100);
+  } catch (e) {}
+  var muted = localStorage.getItem(settingsMuteKey) === "1";
+  musicAudio.muted = muted;
+  if (settingsMute) settingsMute.classList.toggle("on", muted);
+}
+
+if (settingsVol) {
+  settingsVol.addEventListener("input", function () {
+    var v = parseInt(settingsVol.value, 10);
+    musicAudio.volume = v / 100;
+    if (v > 0) musicAudio.muted = false;
+  });
+}
+
+if (settingsMute) {
+  settingsMute.addEventListener("click", function () {
+    musicAudio.muted = !musicAudio.muted;
+  });
+}
+
+musicAudio.addEventListener("volumechange", function () {
+  var shown = musicAudio.muted ? 0 : musicAudio.volume;
+  if (settingsVol) settingsVol.value = Math.round(shown * 100);
+  if (settingsVolVal) settingsVolVal.textContent = Math.round(shown * 100);
+  if (settingsMute) settingsMute.classList.toggle("on", musicAudio.muted);
+  localStorage.setItem(settingsMuteKey, musicAudio.muted ? "1" : "0");
+});
+
+if (settingsLabels) {
+  settingsLabels.addEventListener("click", function () {
+    var hidden = localStorage.getItem(settingsLabelsKey) !== "1";
+    localStorage.setItem(settingsLabelsKey, hidden ? "1" : "0");
+    settingsApplyLabels();
+  });
+}
+
+function settingsBindTopbarToggle(el, key) {
+  if (!el) return;
+  el.addEventListener("click", function () {
+    var st = settingsTopbarState();
+    st[key] = !st[key];
+    localStorage.setItem(settingsTopbarKey, JSON.stringify(st));
+    settingsApplyTopbar();
+    settingsTopbarSync();
+  });
+}
+
+document.querySelectorAll(".settings-cat").forEach(function (cat) {
+  cat.addEventListener("click", function () {
+    document.querySelectorAll(".settings-cat").forEach(function (c) { c.classList.remove("active"); });
+    cat.classList.add("active");
+    document.querySelectorAll(".settings-panel").forEach(function (p) { p.classList.remove("active"); });
+    var panel = document.getElementById(cat.getAttribute("data-target"));
+    if (panel) panel.classList.add("active");
+  });
+});
+
+settingsBindTopbarToggle(settingsBattery, "battery");
+settingsBindTopbarToggle(settingsWifi, "wifi");
+settingsBindTopbarToggle(settingsClock, "clock");
+
+var settingsResetPositions = document.querySelector("#settingsResetPositions");
+if (settingsResetPositions) {
+  settingsResetPositions.addEventListener("click", function () {
+    try { localStorage.removeItem(iconPositionsKey); } catch (e) {}
+    document.querySelectorAll(".appicon").forEach(function (icon) {
+      icon.style.left = "";
+      icon.style.top = "";
+    });
+  });
+}
+
+var settingsResetAll = document.querySelector("#settingsResetAll");
+if (settingsResetAll) {
+  settingsResetAll.addEventListener("click", function () {
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf("isaacos_") === 0) localStorage.removeItem(k);
+      });
+    } catch (e) {}
+    location.reload();
+  });
+}
+
+settingsApplyTopbar();
+settingsApplyLabels();
+settingsApplyAudio();
+settingsTopbarSync();
