@@ -1,4 +1,4 @@
-* {
+﻿* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -3164,6 +3164,23 @@ button {
   transition: all 0.15s;
   user-select: none;
   color: var(--ui-text);
+}
+
+.paint-tool-btn img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+#paintToolPencil img {
+  width: 28px;
+  height: 28px;
+}
+
+#paintToolPicker img {
+  width: 35px;
+  height: 35px;
 }
 
 .paint-tool-btn:hover {

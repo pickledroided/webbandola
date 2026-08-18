@@ -2140,6 +2140,10 @@ var musicRepeatMode = 0;
 var musicVolumeKey = "isaacos_music_volume";
 var musicPrefsKey = "isaacos_music_prefs";
 
+document.querySelector("#musicclose").addEventListener("click", function () {
+  try { musicAudio.pause(); } catch (e) {}
+});
+
 try {
   var musicSavedVol = localStorage.getItem(musicVolumeKey);
   if (musicSavedVol !== null) musicAudio.volume = Math.min(1, Math.max(0, parseFloat(musicSavedVol) || 1));
@@ -2829,7 +2833,7 @@ function initPixelPaint() {
     gridSize: 32,
     tool: "pencil",
     brushSize: 1,
-    color: "#e8d5a8",
+    color: "#000000",
     isDrawing: false,
     startX: -1,
     startY: -1,
@@ -3465,7 +3469,7 @@ function initPixelPaint() {
   });
 
   renderPalette();
-  setColor("#e8d5a8");
+  setColor("#000000");
   resizeCanvas(32, false);
 }
 
