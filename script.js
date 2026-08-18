@@ -187,7 +187,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings", "paint"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -409,6 +409,21 @@ loadIconPositions();
   } catch (e) {}
 })();
 
+(function migrateMusicIconPosition() {
+  try {
+    if (localStorage.getItem("isaacos_icon_positions_music_v1")) return;
+    var saved = localStorage.getItem(iconPositionsKey);
+    if (saved) {
+      var positions = JSON.parse(saved);
+      if (positions.musicicon) {
+        delete positions.musicicon;
+        localStorage.setItem(iconPositionsKey, JSON.stringify(positions));
+      }
+    }
+    localStorage.setItem("isaacos_icon_positions_music_v1", "1");
+  } catch (e) {}
+})();
+
 var welcomeScreen = initializeWindow("welcome");
 var welcomeScreenOpen = document.querySelector("#welcomeopen");
 
@@ -427,6 +442,7 @@ var galleryScreen = initializeApp("gallery");
 var musicScreen = initializeApp("music");
 var themesScreen = initializeApp("themes");
 var settingsScreen = initializeApp("settings");
+var paintScreen = initializeApp("paint");
 
 
 var calcDisplay = document.querySelector("#calcDisplay");
@@ -2761,7 +2777,1041 @@ if (settingsResetAll) {
   });
 }
 
+var settingsReplayBoot = document.querySelector("#settingsReplayBoot");
+if (settingsReplayBoot) {
+  settingsReplayBoot.addEventListener("click", function () {
+    if (typeof window.replayBootIntro === "function") window.replayBootIntro();
+  });
+}
+
 settingsApplyTopbar();
 settingsApplyLabels();
 settingsApplyAudio();
 settingsTopbarSync();
+
+/* =========================================================
+   PIXEL ART PAINT APP IMPLEMENTATION
+   ========================================================= */
+
+function initPixelPaint() {
+  var paintWindow = document.getElementById("paint");
+  if (!paintWindow) return;
+
+  var canvas = document.getElementById("paintCanvas");
+  var previewCanvas = document.getElementById("paintPreviewCanvas");
+  var gridCanvas = document.getElementById("paintGridCanvas");
+  var cursorCanvas = document.getElementById("paintCursorCanvas");
+  var wrapper = document.getElementById("paintCanvasWrapper");
+  var container = document.getElementById("paintCanvasContainer");
+  var coordsEl = document.getElementById("paintCoords");
+  var infoEl = document.getElementById("paintInfo");
+  var customColorInput = document.getElementById("paintCustomColor");
+  var colorPreview = document.getElementById("paintColorPreview");
+  var paletteContainer = document.getElementById("paintPalette");
+  var sizeSelect = document.getElementById("paintCanvasSizeSelect");
+  var gridToggleBtn = document.getElementById("paintToggleGrid");
+  var clearBtn = document.getElementById("paintClear");
+  var exportBtn = document.getElementById("paintExport");
+  var undoBtn = document.getElementById("paintUndo");
+  var redoBtn = document.getElementById("paintRedo");
+
+  if (!canvas || !previewCanvas) return;
+
+  var ctx = canvas.getContext("2d");
+  var previewCtx = previewCanvas.getContext("2d");
+  var cursorCtx = cursorCanvas.getContext("2d");
+
+  var cursorActive = false;
+  var cursorCellX = 0;
+  var cursorCellY = 0;
+
+  var state = {
+    gridSize: 32,
+    tool: "pencil",
+    brushSize: 1,
+    color: "#e8d5a8",
+    isDrawing: false,
+    startX: -1,
+    startY: -1,
+    lastX: -1,
+    lastY: -1,
+    gridVisible: true,
+    undoStack: [],
+    redoStack: [],
+    maxHistory: 30
+  };
+
+  var paletteColors = [
+    "#000000", "#3a3a3a", "#787878", "#b4b4b4", "#ffffff", "#e8d5a8",
+    "#690e0e", "#a81c1c", "#e63946", "#ff6b6b", "#f77f00", "#fcbf49",
+    "#ffe49e", "#8d5b4c", "#523429", "#2f5c1c", "#52b788", "#a7c957",
+    "#1c4b7a", "#3a86ff", "#8ecae6", "#5d2f8a", "#9d4edd", "#ff006e"
+  ];
+
+  function renderPalette() {
+    paletteContainer.innerHTML = "";
+    paletteColors.forEach(function (col) {
+      var swatch = document.createElement("button");
+      swatch.className = "paint-swatch" + (state.color.toLowerCase() === col.toLowerCase() ? " active" : "");
+      swatch.style.backgroundColor = col;
+      swatch.title = col;
+      swatch.addEventListener("click", function () {
+        setColor(col);
+      });
+      paletteContainer.appendChild(swatch);
+    });
+
+    var transSwatch = document.createElement("button");
+    transSwatch.className = "paint-swatch transparent-swatch" + (state.tool === "eraser" ? " active" : "");
+    transSwatch.title = "Eraser / Transparent";
+    transSwatch.addEventListener("click", function () {
+      setTool("eraser");
+    });
+    paletteContainer.appendChild(transSwatch);
+  }
+
+  function setColor(hex) {
+    state.color = hex;
+    colorPreview.style.backgroundColor = hex;
+    customColorInput.value = hex.startsWith("#") ? hex : "#000000";
+    if (state.tool === "eraser") {
+      setTool("pencil");
+    }
+    updatePaletteActiveState();
+  }
+
+  function updatePaletteActiveState() {
+    var swatches = paletteContainer.querySelectorAll(".paint-swatch");
+    swatches.forEach(function (sw) {
+      if (sw.classList.contains("transparent-swatch")) {
+        sw.classList.toggle("active", state.tool === "eraser");
+      } else {
+        var bg = sw.style.backgroundColor;
+        var active = state.tool !== "eraser" && rgbToHex(bg).toLowerCase() === state.color.toLowerCase();
+        sw.classList.toggle("active", active);
+      }
+    });
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb) return "#000000";
+    if (rgb.startsWith("#")) return rgb;
+    var parts = rgb.match(/\d+/g);
+    if (!parts || parts.length < 3) return rgb;
+    function hex(n) {
+      var h = parseInt(n, 10).toString(16);
+      return h.length === 1 ? "0" + h : h;
+    }
+    return "#" + hex(parts[0]) + hex(parts[1]) + hex(parts[2]);
+  }
+
+  function hexToRgba(hex) {
+    var c = hex.replace("#", "");
+    if (c.length === 3) {
+      c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    }
+    var num = parseInt(c, 16);
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255,
+      a: 255
+    };
+  }
+
+  function setTool(toolName) {
+    state.tool = toolName;
+    document.querySelectorAll(".paint-tool-btn[data-tool]").forEach(function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-tool") === toolName);
+    });
+    updatePaletteActiveState();
+    redrawCursor();
+  }
+
+  function setBrushSize(size) {
+    state.brushSize = parseInt(size, 10) || 1;
+    document.querySelectorAll(".paint-size-btn").forEach(function (btn) {
+      btn.classList.toggle("active", parseInt(btn.getAttribute("data-size"), 10) === state.brushSize);
+    });
+    redrawCursor();
+  }
+
+  function resizeCanvas(newSize, keepContent) {
+    var oldData = null;
+    if (keepContent && canvas.width > 0 && canvas.height > 0) {
+      oldData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
+
+    state.gridSize = newSize;
+    canvas.width = newSize;
+    canvas.height = newSize;
+    previewCanvas.width = newSize;
+    previewCanvas.height = newSize;
+
+    ctx.imageSmoothingEnabled = false;
+    previewCtx.imageSmoothingEnabled = false;
+
+    if (oldData && keepContent) {
+      ctx.putImageData(oldData, 0, 0);
+    } else {
+      ctx.clearRect(0, 0, newSize, newSize);
+      state.undoStack = [];
+      state.redoStack = [];
+      saveUndoState();
+    }
+
+    fitCanvasWrapper();
+    updateGridOverlay();
+    infoEl.textContent = newSize + " \u00d7 " + newSize + " px";
+  }
+
+  function fitCanvasWrapper() {
+    if (!container || !wrapper) return;
+    var rect = container.getBoundingClientRect();
+    var s = getOsScale();
+    var availW = (rect.width / s) - 24;
+    var availH = (rect.height / s) - 24;
+    var maxInner = Math.min(availW, availH, 436);
+    var cell = Math.max(1, Math.floor(maxInner / state.gridSize));
+    var inner = cell * state.gridSize;
+    var side = inner + 4;
+    wrapper.style.width = side + "px";
+    wrapper.style.height = side + "px";
+    updateGridOverlay();
+    redrawCursor();
+  }
+
+  function updateGridOverlay() {
+    if (!state.gridVisible) {
+      gridCanvas.style.display = "none";
+      gridToggleBtn.textContent = "\u25a6 Grid: OFF";
+      return;
+    }
+    gridCanvas.style.display = "block";
+    gridToggleBtn.textContent = "\u25a6 Grid: ON";
+
+    var cell = wrapper.clientWidth / state.gridSize;
+    var k = Math.max(4, Math.round(cell * getOsScale()));
+    gridCanvas.width = state.gridSize * k;
+    gridCanvas.height = state.gridSize * k;
+    var g = gridCanvas.getContext("2d");
+    g.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+    g.fillStyle = "rgba(0,0,0,0.18)";
+    for (var i = 0; i < state.gridSize; i++) {
+      var p = i * k;
+      g.fillRect(p, 0, 1, gridCanvas.height);
+      g.fillRect(0, p, gridCanvas.width, 1);
+    }
+  }
+
+  function redrawCursor() {
+    if (cursorActive) drawCursor(cursorCellX, cursorCellY);
+  }
+
+  function drawCursor(cx, cy) {
+    var w = gridCanvas.width;
+    if (w > 0 && (cursorCanvas.width !== w || cursorCanvas.height !== w)) {
+      cursorCanvas.width = w;
+      cursorCanvas.height = w;
+    }
+    cursorCanvas.style.display = "block";
+    if (cursorCanvas.width === 0) return;
+    var k = cursorCanvas.width / state.gridSize;
+    cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
+
+    var showOutline = state.tool === "pencil" || state.tool === "eraser" ||
+      state.tool === "line" || state.tool === "rect";
+    var sz = showOutline ? state.brushSize : 1;
+    var half = Math.floor(sz / 2);
+    var bx = (cx - half) * k;
+    var by = (cy - half) * k;
+    var bw = sz * k;
+    var mx = bx + Math.floor(bw / 2);
+    var my = by + Math.floor(bw / 2);
+
+    if (showOutline) {
+      var x0 = bx - 1, y0 = by - 1, w0 = bw + 2;
+      cursorCtx.fillStyle = "#fff";
+      cursorCtx.fillRect(x0, y0, w0, 1);
+      cursorCtx.fillRect(x0, y0 + w0 - 1, w0, 1);
+      cursorCtx.fillRect(x0, y0, 1, w0);
+      cursorCtx.fillRect(x0 + w0 - 1, y0, 1, w0);
+      cursorCtx.fillStyle = "#000";
+      cursorCtx.fillRect(bx, by, bw, 1);
+      cursorCtx.fillRect(bx, by + bw - 1, bw, 1);
+      cursorCtx.fillRect(bx, by, 1, bw);
+      cursorCtx.fillRect(bx + bw - 1, by, 1, bw);
+    }
+
+    var arm = 2;
+    cursorCtx.fillStyle = "#000";
+    cursorCtx.fillRect(mx - arm, my - 1, arm * 2 + 1, 1);
+    cursorCtx.fillRect(mx - 1, my - arm, 1, arm * 2 + 1);
+    cursorCtx.fillStyle = "#fff";
+    cursorCtx.fillRect(mx - arm + 1, my, arm * 2 - 1, 1);
+    cursorCtx.fillRect(mx, my - arm + 1, 1, arm * 2 - 1);
+  }
+
+  function clearCursor() {
+    cursorActive = false;
+    cursorCanvas.style.display = "none";
+    cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
+  }
+
+  function saveUndoState() {
+    if (state.undoStack.length >= state.maxHistory) {
+      state.undoStack.shift();
+    }
+    state.undoStack.push(ctx.getImageData(0, 0, state.gridSize, state.gridSize));
+    state.redoStack = [];
+  }
+
+  function undo() {
+    if (state.undoStack.length <= 1) return;
+    var current = state.undoStack.pop();
+    state.redoStack.push(current);
+    var prev = state.undoStack[state.undoStack.length - 1];
+    if (prev) {
+      ctx.putImageData(prev, 0, 0);
+    }
+  }
+
+  function redo() {
+    if (state.redoStack.length === 0) return;
+    var next = state.redoStack.pop();
+    state.undoStack.push(next);
+    ctx.putImageData(next, 0, 0);
+  }
+
+  function getPixelCoords(e) {
+    var rect = canvas.getBoundingClientRect();
+    var relX = (e.clientX - rect.left) / rect.width;
+    var relY = (e.clientY - rect.top) / rect.height;
+    var x = Math.floor(relX * state.gridSize);
+    var y = Math.floor(relY * state.gridSize);
+    return {
+      x: Math.max(0, Math.min(state.gridSize - 1, x)),
+      y: Math.max(0, Math.min(state.gridSize - 1, y))
+    };
+  }
+
+  function drawPixel(targetCtx, x, y, color, size, isEraser) {
+    var half = Math.floor(size / 2);
+    var startX = x - half;
+    var startY = y - half;
+
+    if (isEraser) {
+      targetCtx.clearRect(startX, startY, size, size);
+    } else {
+      targetCtx.fillStyle = color;
+      targetCtx.fillRect(startX, startY, size, size);
+    }
+  }
+
+  function drawLine(targetCtx, x0, y0, x1, y1, color, size, isEraser) {
+    var dx = Math.abs(x1 - x0);
+    var dy = Math.abs(y1 - y0);
+    var sx = x0 < x1 ? 1 : -1;
+    var sy = y0 < y1 ? 1 : -1;
+    var err = dx - dy;
+
+    var curX = x0;
+    var curY = y0;
+
+    while (true) {
+      drawPixel(targetCtx, curX, curY, color, size, isEraser);
+      if (curX === x1 && curY === y1) break;
+      var e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        curX += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        curY += sy;
+      }
+    }
+  }
+
+  function drawRect(targetCtx, x0, y0, x1, y1, color, size, isEraser) {
+    var minX = Math.min(x0, x1);
+    var maxX = Math.max(x0, x1);
+    var minY = Math.min(y0, y1);
+    var maxY = Math.max(y0, y1);
+
+    for (var x = minX; x <= maxX; x++) {
+      drawPixel(targetCtx, x, minY, color, size, isEraser);
+      drawPixel(targetCtx, x, maxY, color, size, isEraser);
+    }
+    for (var y = minY; y <= maxY; y++) {
+      drawPixel(targetCtx, minX, y, color, size, isEraser);
+      drawPixel(targetCtx, maxX, y, color, size, isEraser);
+    }
+  }
+
+  function floodFill(startX, startY, fillColor) {
+    var imgData = ctx.getImageData(0, 0, state.gridSize, state.gridSize);
+    var data = imgData.data;
+    var width = state.gridSize;
+    var height = state.gridSize;
+
+    var startIdx = (startY * width + startX) * 4;
+    var targetR = data[startIdx];
+    var targetG = data[startIdx + 1];
+    var targetB = data[startIdx + 2];
+    var targetA = data[startIdx + 3];
+
+    var fillRgba = state.tool === "eraser" ? { r: 0, g: 0, b: 0, a: 0 } : hexToRgba(fillColor);
+
+    if (
+      targetR === fillRgba.r &&
+      targetG === fillRgba.g &&
+      targetB === fillRgba.b &&
+      targetA === fillRgba.a
+    ) {
+      return;
+    }
+
+    var queue = [[startX, startY]];
+    var visited = new Uint8Array(width * height);
+    visited[startY * width + startX] = 1;
+
+    function matchesTarget(x, y) {
+      if (x < 0 || x >= width || y < 0 || y >= height) return false;
+      var idx = (y * width + x) * 4;
+      return (
+        data[idx] === targetR &&
+        data[idx + 1] === targetG &&
+        data[idx + 2] === targetB &&
+        data[idx + 3] === targetA
+      );
+    }
+
+    while (queue.length > 0) {
+      var pt = queue.pop();
+      var cx = pt[0];
+      var cy = pt[1];
+      var idx = (cy * width + cx) * 4;
+
+      data[idx] = fillRgba.r;
+      data[idx + 1] = fillRgba.g;
+      data[idx + 2] = fillRgba.b;
+      data[idx + 3] = fillRgba.a;
+
+      var neighbors = [
+        [cx + 1, cy],
+        [cx - 1, cy],
+        [cx, cy + 1],
+        [cx, cy - 1]
+      ];
+
+      for (var i = 0; i < neighbors.length; i++) {
+        var nx = neighbors[i][0];
+        var ny = neighbors[i][1];
+        var nIdx = ny * width + nx;
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height && !visited[nIdx] && matchesTarget(nx, ny)) {
+          visited[nIdx] = 1;
+          queue.push([nx, ny]);
+        }
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  function pickColor(x, y) {
+    var imgData = ctx.getImageData(x, y, 1, 1).data;
+    if (imgData[3] === 0) {
+      setTool("eraser");
+    } else {
+      var hex = "#" + [imgData[0], imgData[1], imgData[2]].map(function (v) {
+        var h = v.toString(16);
+        return h.length === 1 ? "0" + h : h;
+      }).join("");
+      setColor(hex);
+      setTool("pencil");
+    }
+  }
+
+  function startDraw(e) {
+    var coords = getPixelCoords(e);
+    state.isDrawing = true;
+    state.startX = coords.x;
+    state.startY = coords.y;
+    state.lastX = coords.x;
+    state.lastY = coords.y;
+
+    if (state.tool === "pencil" || state.tool === "eraser") {
+      drawPixel(ctx, coords.x, coords.y, state.color, state.brushSize, state.tool === "eraser");
+    } else if (state.tool === "bucket") {
+      floodFill(coords.x, coords.y, state.color);
+      state.isDrawing = false;
+      saveUndoState();
+    } else if (state.tool === "picker") {
+      pickColor(coords.x, coords.y);
+      state.isDrawing = false;
+    }
+  }
+
+  function continueDraw(e) {
+    var coords = getPixelCoords(e);
+    coordsEl.textContent = "X: " + coords.x + " | Y: " + coords.y;
+
+    if (!state.isDrawing) return;
+
+    if (state.tool === "pencil" || state.tool === "eraser") {
+      drawLine(
+        ctx,
+        state.lastX,
+        state.lastY,
+        coords.x,
+        coords.y,
+        state.color,
+        state.brushSize,
+        state.tool === "eraser"
+      );
+      state.lastX = coords.x;
+      state.lastY = coords.y;
+    } else if (state.tool === "line") {
+      previewCtx.clearRect(0, 0, state.gridSize, state.gridSize);
+      drawLine(
+        previewCtx,
+        state.startX,
+        state.startY,
+        coords.x,
+        coords.y,
+        state.color,
+        state.brushSize,
+        false
+      );
+    } else if (state.tool === "rect") {
+      previewCtx.clearRect(0, 0, state.gridSize, state.gridSize);
+      drawRect(
+        previewCtx,
+        state.startX,
+        state.startY,
+        coords.x,
+        coords.y,
+        state.color,
+        state.brushSize,
+        false
+      );
+    }
+  }
+
+  function stopDraw(e) {
+    if (!state.isDrawing) return;
+    state.isDrawing = false;
+
+    if (e && (state.tool === "line" || state.tool === "rect")) {
+      var coords = getPixelCoords(e);
+      previewCtx.clearRect(0, 0, state.gridSize, state.gridSize);
+      if (state.tool === "line") {
+        drawLine(
+          ctx,
+          state.startX,
+          state.startY,
+          coords.x,
+          coords.y,
+          state.color,
+          state.brushSize,
+          false
+        );
+      } else if (state.tool === "rect") {
+        drawRect(
+          ctx,
+          state.startX,
+          state.startY,
+          coords.x,
+          coords.y,
+          state.color,
+          state.brushSize,
+          false
+        );
+      }
+    }
+
+    saveUndoState();
+  }
+
+  wrapper.addEventListener("mousedown", function (e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startDraw(e);
+  });
+
+  window.addEventListener("mousemove", function (e) {
+    if (state.isDrawing) {
+      var coords = getPixelCoords(e);
+      cursorCellX = coords.x;
+      cursorCellY = coords.y;
+      drawCursor(coords.x, coords.y);
+      continueDraw(e);
+    }
+  });
+
+  wrapper.addEventListener("mouseenter", function () {
+    cursorActive = true;
+  });
+
+  wrapper.addEventListener("mousemove", function (e) {
+    var coords = getPixelCoords(e);
+    cursorCellX = coords.x;
+    cursorCellY = coords.y;
+    cursorActive = true;
+    drawCursor(coords.x, coords.y);
+    continueDraw(e);
+  });
+
+  wrapper.addEventListener("mouseleave", function () {
+    clearCursor();
+    if (!state.isDrawing) {
+      coordsEl.textContent = "X: - | Y: -";
+    }
+  });
+
+  window.addEventListener("mouseup", function (e) {
+    if (state.isDrawing) {
+      stopDraw(e);
+    }
+  });
+
+  document.querySelectorAll(".paint-tool-btn[data-tool]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      setTool(btn.getAttribute("data-tool"));
+    });
+  });
+
+  document.querySelectorAll(".paint-size-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      setBrushSize(btn.getAttribute("data-size"));
+    });
+  });
+
+  customColorInput.addEventListener("input", function () {
+    setColor(customColorInput.value);
+  });
+
+  sizeSelect.addEventListener("change", function () {
+    var newSize = parseInt(sizeSelect.value, 10) || 32;
+    if (confirm("Changing canvas size will reset current drawing. Proceed?")) {
+      resizeCanvas(newSize, false);
+    } else {
+      sizeSelect.value = state.gridSize.toString();
+    }
+  });
+
+  gridToggleBtn.addEventListener("click", function () {
+    state.gridVisible = !state.gridVisible;
+    updateGridOverlay();
+  });
+
+  clearBtn.addEventListener("click", function () {
+    ctx.clearRect(0, 0, state.gridSize, state.gridSize);
+    previewCtx.clearRect(0, 0, state.gridSize, state.gridSize);
+    saveUndoState();
+  });
+
+  exportBtn.addEventListener("click", function () {
+    var exportSize = 512;
+    var exportCanvas = document.createElement("canvas");
+    exportCanvas.width = exportSize;
+    exportCanvas.height = exportSize;
+    var expCtx = exportCanvas.getContext("2d");
+    expCtx.imageSmoothingEnabled = false;
+    expCtx.drawImage(canvas, 0, 0, exportSize, exportSize);
+
+    var link = document.createElement("a");
+    link.download = "isaacos-pixelart-" + state.gridSize + "x" + state.gridSize + "-" + Date.now() + ".png";
+    link.href = exportCanvas.toDataURL("image/png");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  undoBtn.addEventListener("click", undo);
+  redoBtn.addEventListener("click", redo);
+
+  window.addEventListener("resize", fitCanvasWrapper);
+
+  var paintObserver = new ResizeObserver(function () {
+    fitCanvasWrapper();
+  });
+  if (paintWindow) {
+    paintObserver.observe(paintWindow);
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (paintWindow.style.display === "none") return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        redo();
+      } else {
+        undo();
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      redo();
+    } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      var k = e.key.toLowerCase();
+      if (k === "b" || k === "p") setTool("pencil");
+      else if (k === "e") setTool("eraser");
+      else if (k === "g") setTool("bucket");
+      else if (k === "i") setTool("picker");
+      else if (k === "l") setTool("line");
+      else if (k === "u") setTool("rect");
+    }
+  });
+
+  renderPalette();
+  setColor("#e8d5a8");
+  resizeCanvas(32, false);
+}
+
+initPixelPaint();
+
+// --- Boot intro: Binding of Isaac trapdoor sequence ---
+(function () {
+  var overlay = document.getElementById("bootIntro");
+  if (!overlay) return;
+  var canvas = document.getElementById("bootCanvas");
+  var hint = overlay.querySelector(".boot-skip");
+  hint.textContent = "Click / press any key to boot";
+  hint.classList.add("centered");
+  var ctx = canvas.getContext("2d");
+  canvas.width = 1280;
+  canvas.height = 720;
+
+  var W = canvas.width, H = canvas.height;
+  var FRAME_MS = 1000 / 30;
+  var S = 3;
+  var AY = 425;
+  var DY = 540;
+
+  var sheets = {};
+  var names = { isaac: "img/boot_isaac.png", trapdoor: "img/boot_trapdoor.png", poof: "img/boot_poof.png" };
+  var pending = Object.keys(names).length;
+  var ready = false;
+  var rafId = null;
+  var running = false;
+
+  var sfx = {
+    poof: new Audio("img/boot_appear_poof.wav"),
+    trapdoor: new Audio("img/boot_crawl_open.wav"),
+    grunt: new Audio("img/boot_hurt_grunt.wav")
+  };
+
+  sfx.grunt.volume = 0.5;
+
+  function playSfx(a) {
+    try {
+      a.currentTime = 0;
+      a.play().catch(function () {});
+    } catch (e) {}
+  }
+
+  function stopSfx(which) {
+    try {
+      if (which) {
+        which.pause();
+      } else {
+        sfx.poof.pause();
+        sfx.trapdoor.pause();
+        sfx.grunt.pause();
+      }
+    } catch (e) {}
+  }
+
+  Object.keys(names).forEach(function (key) {
+    var img = new Image();
+    img.onload = function () {
+      sheets[key] = img;
+      pending--;
+      if (pending === 0) ready = true;
+    };
+    img.onerror = function () { pending--; };
+    img.src = names[key];
+  });
+
+  var POOF = [
+    [0,0,61,255],[64,0,61,255],[128,0,61,255],[192,0,61,235],
+    [0,61,80,215],[64,61,80,195],[64,61,80,185],[128,61,80,175],
+    [128,61,80,165],[192,61,80,155],[192,61,80,145],[0,141,80,135],
+    [0,141,80,125],[64,141,80,115],[64,141,80,105],[128,141,80,95],
+    [128,141,80,85],[192,141,80,75],[192,141,80,65],[0,221,35,55],
+    [0,221,35,45],[64,221,35,35],[64,221,35,25],[128,221,35,15],
+    [128,221,35,5]
+  ];
+
+  var APPEAR = [
+    { c:[0,192,64,64], sx:100, sy:100, y:3, d:20 },
+    { c:[0,192,64,64], sx:120, sy:80, y:4, d:2 },
+    { c:[0,192,64,64], sx:80, sy:120, y:1, d:2 },
+    { c:[0,192,64,64], sx:110, sy:90, y:2, d:2 },
+    { c:[0,192,64,64], sx:94, sy:104, y:1, d:2 },
+    { c:[0,192,64,64], sx:100, sy:100, y:1, d:12 }
+  ];
+
+  var DOOR_OPEN = [
+    { c:[64,64,64,64], sx:100, sy:100, d:2 },
+    { c:[128,64,64,64], sx:100, sy:100, d:2 },
+    { c:[0,0,64,64], sx:80, sy:120, d:2 },
+    { c:[0,0,64,64], sx:110, sy:90, d:2 },
+    { c:[0,0,64,64], sx:90, sy:110, d:2 },
+    { c:[0,0,64,64], sx:100, sy:100, d:1 }
+  ];
+
+  var DESCEND = [
+    { c:[0,192,64,64], sx:60, sy:140, y:2, d:2 },
+    { c:[0,192,64,64], sx:130, sy:70, y:-29, d:2 },
+    { c:[0,256,64,64], sx:100, sy:100, y:-11, d:2 },
+    { c:[64,256,64,64], sx:100, sy:100, y:-12, d:2 },
+    { c:[64,256,64,64], sx:100, sy:100, y:-13, d:2 },
+    { c:[64,256,64,64], sx:90, sy:110, y:-9, d:2 },
+    { c:[64,256,64,64], sx:70, sy:130, y:1, d:1 },
+    { c:[64,256,64,64], sx:65, sy:135, y:8, d:1 },
+    { c:[0,208,64,16], sx:50, sy:150, y:72, d:1 },
+    { c:[0,0,32,16], sx:50, sy:150, y:72, d:1, hidden:true }
+  ];
+
+  var AX = W / 2;
+  var TRAP_X = 0;
+
+  function drawSprite(img, crop, px, py, sx, sy, xscale, yscale) {
+    if (!img) return;
+    var w = crop[2] * S * (xscale / 100);
+    var h = crop[3] * S * (yscale / 100);
+    var dx = px - 32 * S * (xscale / 100);
+    var dy = py - 56 * S * (yscale / 100);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, crop[0], crop[1], crop[2], crop[3], dx, dy, w, h);
+  }
+
+  function drawTrapdoor(crop, sx, sy) {
+    if (!sheets.trapdoor) return;
+    var w = 64 * S * (sx / 100);
+    var h = 64 * S * (sy / 100);
+    var dx = AX + TRAP_X - 32 * S * (sx / 100);
+    var dy = DY - 32 * S * (sy / 100);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sheets.trapdoor, crop[0], crop[1], 64, 64, dx, dy, w, h);
+  }
+
+  function drawPoof(frame, px, py) {
+    if (!sheets.poof) return;
+    var f = POOF[frame];
+    if (!f) return;
+    var w = 64 * S;
+    var h = f[2] * S;
+    ctx.globalAlpha = f[3] / 255;
+    ctx.globalCompositeOperation = "screen";
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sheets.poof, f[0], f[1], 64, f[2], px - 32 * S, py - f[2] * S + 26 * S, w, h);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+
+  var frozen = null;
+
+  function makeFrozen() {
+    frozen = document.createElement("canvas");
+    frozen.width = W;
+    frozen.height = H;
+    frozen.getContext("2d").drawImage(canvas, 0, 0);
+  }
+
+  var phase = -1;
+  var frame = 0;
+  var lastTime = 0;
+  var sfxPhase = -1;
+
+  function triggerPhaseSfx(p) {
+    if (p === 0) playSfx(sfx.poof);
+    else if (p === 2) playSfx(sfx.trapdoor);
+    else if (p === 3) playSfx(sfx.poof);
+    else if (p === 4) {
+      stopSfx(sfx.poof);
+      playSfx(sfx.poof);
+    }
+  }
+
+  function run(t) {
+    if (!running) return;
+    if (!lastTime) lastTime = t;
+    var elapsed = t - lastTime;
+    lastTime = t;
+    frame += elapsed / FRAME_MS;
+    if (phase !== sfxPhase) {
+      sfxPhase = phase;
+      triggerPhaseSfx(phase);
+    }
+
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+
+    if (phase === 0) {
+      var poofF = Math.floor(frame);
+      if (poofF < POOF.length) drawPoof(poofF, AX, AY + 10);
+      var appearFrame = Math.floor(frame);
+      var total = 0;
+      for (var i = 0; i < APPEAR.length; i++) {
+        total += APPEAR[i].d;
+        if (appearFrame < total) {
+          var a = APPEAR[i];
+          drawSprite(sheets.isaac, a.c, AX, AY, a.sx, a.sy, a.sx, a.sy);
+          break;
+        }
+      }
+      if (appearFrame >= total) {
+        drawSprite(sheets.isaac, [0,192,64,64], AX, AY, 100, 100, 100, 100);
+      }
+      var appearTotal = 0;
+      for (var ai = 0; ai < APPEAR.length; ai++) appearTotal += APPEAR[ai].d;
+      if (poofF >= POOF.length && appearFrame >= appearTotal) {
+        frame = 0;
+        phase = 1;
+      }
+    } else if (phase === 1) {
+      drawSprite(sheets.isaac, [0,192,64,64], AX, AY, 100, 100, 100, 100);
+      if (frame >= 16) { frame = 0; phase = 2; }
+    } else if (phase === 2) {
+      drawSprite(sheets.isaac, [0,192,64,64], AX, AY, 100, 100, 100, 100);
+      drawTrapdoor([0,64,64,64], 100, 100);
+      var d = Math.floor(frame);
+      var dt = 0;
+      var played = false;
+      for (var j = 0; j < DOOR_OPEN.length; j++) {
+        dt += DOOR_OPEN[j].d;
+        if (d < dt) {
+          var dof = DOOR_OPEN[j];
+          drawTrapdoor(dof.c, dof.sx, dof.sy);
+          played = true;
+          break;
+        }
+      }
+      if (!played) drawTrapdoor([0,0,64,64], 100, 100);
+      var tot = 0;
+      for (var k = 0; k < DOOR_OPEN.length; k++) tot += DOOR_OPEN[k].d;
+      if (d >= tot) { frame = 0; phase = 3; }
+    } else if (phase === 3) {
+      drawTrapdoor([0,0,64,64], 100, 100);
+      var df = Math.floor(frame);
+      var dd = 0;
+      for (var m = 0; m < DESCEND.length; m++) {
+        dd += DESCEND[m].d;
+        if (df < dd) {
+          var de = DESCEND[m];
+          if (!de.hidden) drawSprite(sheets.isaac, de.c, AX, AY + de.y * S, 100, 100, de.sx, de.sy);
+          break;
+        }
+      }
+      if (df >= 13 && df < 15) drawPoof(df - 13, AX, AY + 10);
+      var dtot = 0;
+      for (var n = 0; n < DESCEND.length; n++) dtot += DESCEND[n].d;
+      if (df >= dtot) { frame = 0; phase = 4; }
+    } else if (phase === 4) {
+      drawTrapdoor([0,0,64,64], 100, 100);
+      var pf = Math.floor(frame);
+      if (pf < POOF.length) drawPoof(pf, AX, AY + 10);
+      if (pf >= 2) { makeFrozen(); frame = 0; phase = 5; }
+    } else if (phase === 5) {
+      if (frozen) {
+        var block = Math.round(4 + frame * 1.5);
+        if (block > 48) block = 48;
+        var off = document.createElement("canvas");
+        off.width = Math.max(2, Math.round(W / block));
+        off.height = Math.max(2, Math.round(H / block));
+        var octx = off.getContext("2d");
+        octx.imageSmoothingEnabled = false;
+        octx.drawImage(frozen, 0, 0, W, H, 0, 0, off.width, off.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, W, H);
+        ctx.imageSmoothingEnabled = true;
+        if (block >= 48 && frame >= 45) { frame = 0; phase = 6; }
+      }
+    } else if (phase === 6) {
+      if (frozen) {
+        var off = document.createElement("canvas");
+        off.width = Math.max(2, Math.round(W / 48));
+        off.height = Math.max(2, Math.round(H / 48));
+        var octx = off.getContext("2d");
+        octx.imageSmoothingEnabled = false;
+        octx.drawImage(frozen, 0, 0, W, H, 0, 0, off.width, off.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, W, H);
+        ctx.imageSmoothingEnabled = true;
+      }
+      overlay.style.opacity = Math.max(0, 1 - frame / 30);
+      if (frame >= 18) {
+        playSfx(sfx.grunt);
+        running = false;
+        overlay.classList.add("hidden");
+        overlay.style.opacity = 1;
+      }
+    }
+
+    if (running) rafId = requestAnimationFrame(run);
+  }
+
+  function start() {
+    if (running) return;
+    if (!ready) {
+      overlay.classList.add("hidden");
+      return;
+    }
+    hint.textContent = "Click / press any key to skip";
+    hint.classList.remove("centered");
+    running = true;
+    phase = 0;
+    frame = 0;
+    lastTime = 0;
+    sfxPhase = -1;
+    rafId = requestAnimationFrame(run);
+  }
+
+  function skip() {
+    running = false;
+    stopSfx();
+    if (rafId) cancelAnimationFrame(rafId);
+    overlay.classList.add("hidden");
+  }
+
+  var started = false;
+
+  function firstInput() {
+    if (started) {
+      if (running) skip();
+      return;
+    }
+    started = true;
+    start();
+  }
+
+  function replay() {
+    if (running) skip();
+    started = false;
+    overlay.classList.remove("hidden");
+    overlay.style.opacity = 1;
+    hint.textContent = "Click / press any key to boot";
+    hint.classList.add("centered");
+    running = false;
+    phase = -1;
+    frame = 0;
+    lastTime = 0;
+    sfxPhase = -1;
+    frozen = null;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  window.replayBootIntro = replay;
+
+  overlay.addEventListener("click", firstInput);
+  document.addEventListener("keydown", firstInput);
+  overlay.tabIndex = 0;
+
+  setTimeout(function () {
+    if (!ready && !started) overlay.classList.add("hidden");
+  }, 4000);
+})();

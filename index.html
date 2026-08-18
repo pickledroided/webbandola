@@ -8,6 +8,7 @@
 </head>
 <body>
   <div id="os">
+  <div id="bootIntro"><canvas id="bootCanvas"></canvas><div class="boot-skip">Click / press any key to boot</div></div>
   <div id="dock">
   </div>
   <div class="topbar" id="top">
@@ -67,6 +68,10 @@
     <div class="appicon" id="settingsicon">
       <div class="appicon-img"><img src="img/Collectible_Chaos_icon.webp" alt="settings"></div>
       <p class="appicon-label">Settings</p>
+    </div>
+    <div class="appicon" id="painticon">
+      <div class="appicon-img"><img src="img/Collectible_Rainbow_Baby_icon.webp" alt="paint"></div>
+      <p class="appicon-label">Paint</p>
     </div>
   </div>  
 
@@ -390,6 +395,8 @@
             <span class="settings-toggle-label">Mute</span>
             <button class="settings-toggle" id="settingsMute"></button>
           </div>
+          <div class="themes-section-label">Boot</div>
+          <button class="themes-action" id="settingsReplayBoot">Replay boot intro</button>
         </section>
         <section class="settings-panel" id="settingsPanelPersonalization">
           <h3 class="settings-panel-title">Personalization</h3>
@@ -430,6 +437,93 @@
       </div>
     </div>
   </div>
+  <div class="window" id="paint" style="display: none;">
+    <div class="windowheader" id="paintheader">
+      <span class="window-title">Pixel Paint</span>
+      <div class="minbutton" id="paintmin" title="Minimize"></div>
+      <div class="closebutton" id="paintclose"></div>
+    </div>
+    <div class="paint-app">
+      <div class="paint-toolbar">
+        <div class="paint-toolgroup">
+          <div class="paint-section-label">Tools</div>
+          <div class="paint-tools-grid">
+            <button class="paint-tool-btn active" id="paintToolPencil" data-tool="pencil" title="Pencil (Pixel Draw)">✏️</button>
+            <button class="paint-tool-btn" id="paintToolEraser" data-tool="eraser" title="Eraser">🧽</button>
+            <button class="paint-tool-btn" id="paintToolBucket" data-tool="bucket" title="Flood Fill">🪣</button>
+            <button class="paint-tool-btn" id="paintToolPicker" data-tool="picker" title="Color Picker / Eyedropper">💉</button>
+            <button class="paint-tool-btn" id="paintToolLine" data-tool="line" title="Line Tool">📏</button>
+            <button class="paint-tool-btn" id="paintToolRect" data-tool="rect" title="Rectangle Tool">◻️</button>
+          </div>
+        </div>
+
+        <div class="paint-toolgroup">
+          <div class="paint-section-label">Size</div>
+          <div class="paint-sizes-row">
+            <button class="paint-size-btn active" data-size="1" title="1px Brush">1</button>
+            <button class="paint-size-btn" data-size="2" title="2px Brush">2</button>
+            <button class="paint-size-btn" data-size="3" title="3px Brush">3</button>
+            <button class="paint-size-btn" data-size="4" title="4px Brush">4</button>
+          </div>
+        </div>
+
+        <div class="paint-toolgroup">
+          <div class="paint-section-label">Canvas</div>
+          <select class="paint-select" id="paintCanvasSizeSelect" title="Canvas Resolution">
+            <option value="16">16 × 16</option>
+            <option value="24">24 × 24</option>
+            <option value="32" selected>32 × 32</option>
+            <option value="48">48 × 48</option>
+            <option value="64">64 × 64</option>
+          </select>
+          <button class="paint-action-btn" id="paintToggleGrid" title="Toggle Grid (On/Off)">▦ Grid: ON</button>
+        </div>
+
+        <div class="paint-toolgroup">
+          <div class="paint-section-label">History</div>
+          <div class="paint-hist-row">
+            <button class="paint-tool-btn" id="paintUndo" title="Undo">↶</button>
+            <button class="paint-tool-btn" id="paintRedo" title="Redo">↷</button>
+          </div>
+        </div>
+
+        <div class="paint-toolgroup paint-actions-bottom">
+          <button class="paint-action-btn paint-btn-danger" id="paintClear" title="Clear Canvas">🗑 Clear All</button>
+          <button class="paint-action-btn paint-btn-primary" id="paintExport" title="Export as PNG">💾 Export PNG</button>
+        </div>
+      </div>
+
+      <div class="paint-main">
+        <div class="paint-canvas-container" id="paintCanvasContainer">
+          <div class="paint-canvas-wrapper" id="paintCanvasWrapper">
+            <canvas id="paintCanvas" width="32" height="32"></canvas>
+            <canvas id="paintPreviewCanvas" width="32" height="32"></canvas>
+            <canvas id="paintGridCanvas" width="32" height="32"></canvas>
+            <canvas id="paintCursorCanvas" width="32" height="32"></canvas>
+          </div>
+        </div>
+        <div class="paint-statusbar">
+          <span class="paint-coord" id="paintCoords">X: - | Y: -</span>
+          <span class="paint-info" id="paintInfo">32 × 32 px</span>
+        </div>
+      </div>
+
+      <div class="paint-sidebar-right">
+        <div class="paint-section-label">Color</div>
+        <div class="paint-active-color-wrap">
+          <div class="paint-color-preview" id="paintColorPreview" style="background-color: #e8d5a8;"></div>
+          <label class="paint-custom-picker-label" title="Choose custom color">
+            <span>Pick</span>
+            <input type="color" id="paintCustomColor" value="#e8d5a8">
+          </label>
+        </div>
+
+        <div class="paint-section-label">Palette</div>
+        <div class="paint-palette" id="paintPalette"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="data/items.js"></script>
     <script src="data/bosses.js"></script>
