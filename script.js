@@ -1,6 +1,12 @@
 function updateTime() {
-  var now = new Date().toLocaleString();
-  document.querySelector("#timeElement").innerHTML = now;
+  var now = new Date();
+  var day = now.getDate();
+  var month = now.toLocaleDateString("en-EN", { month: "long" });
+  var year = now.getFullYear();
+  var p = function (n) { return n < 10 ? "0" + n : "" + n; };
+  var date = day + " " + month + " " + year;
+  var time = p(now.getHours()) + ":" + p(now.getMinutes());
+  document.querySelector("#timeElement").innerHTML = date + " | " + time;
 }
 setInterval(updateTime, 1000);
 updateTime();
@@ -187,7 +193,7 @@ var dockItems = {};
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings", "paint"];
+  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings", "paint", "widgets"];
 
   var present = {};
   ids.forEach(function (id) {
@@ -443,6 +449,7 @@ var musicScreen = initializeApp("music");
 var themesScreen = initializeApp("themes");
 var settingsScreen = initializeApp("settings");
 var paintScreen = initializeApp("paint");
+var widgetsScreen = initializeApp("widgets");
 
 
 var calcDisplay = document.querySelector("#calcDisplay");
@@ -3818,4 +3825,573 @@ initPixelPaint();
   setTimeout(function () {
     if (!ready && !started) overlay.classList.add("hidden");
   }, 4000);
+})();
+
+/* =========================================================
+   WIDGETS APP IMPLEMENTATION
+   ========================================================= */
+
+(function initWidgets() {
+  var desktop = document.getElementById("desktopWidgets");
+  var preview = document.getElementById("widgetsPreview");
+  if (!desktop || !preview) return;
+
+  var widgetsKey = "isaacos_widgets_pinned";
+
+  function loadPinned() {
+    try { return JSON.parse(localStorage.getItem(widgetsKey) || "[]"); }
+    catch (e) { return []; }
+  }
+
+  var pinned = loadPinned();
+  if (pinned.indexOf("clock") === -1) {
+    pinned.unshift("clock");
+    savePinned();
+  }
+
+  function savePinned() {
+    try { localStorage.setItem(widgetsKey, JSON.stringify(pinned)); } catch (e) {}
+  }
+
+  /* ---- individual widget state ---- */
+
+  var todoKey = "isaacos_todo";
+  var todoItems = [];
+  try { todoItems = JSON.parse(localStorage.getItem(todoKey) || "[]"); } catch (e) { todoItems = []; }
+  function saveTodo() {
+    try { localStorage.setItem(todoKey, JSON.stringify(todoItems)); } catch (e) {}
+  }
+
+  /* ---- clock ---- */
+
+  var clockHandH = null, clockHandM = null, clockHandS = null, clockDigit = null, clockSec = null, clockTimer = null;
+
+  function renderClock() {
+    if (!clockHandH) return;
+    var d = new Date();
+    var s = d.getSeconds(), m = d.getMinutes(), h24 = d.getHours(), h = h24 % 12;
+    clockHandH.setAttribute("transform", "rotate(" + ((h + m / 60) * 30) + " 50 50)");
+    clockHandM.setAttribute("transform", "rotate(" + ((m + s / 60) * 6) + " 50 50)");
+    clockHandS.setAttribute("transform", "rotate(" + (s * 6) + " 50 50)");
+    var p = function (n) { return n < 10 ? "0" + n : "" + n; };
+    clockDigit.textContent = p(h24) + ":" + p(m);
+    clockSec.textContent = p(s);
+  }
+
+  function buildClock() {
+    var marks = "";
+    for (var i = 0; i < 12; i++) {
+      var a = (i * 30 * Math.PI) / 180;
+      marks += '<line x1="' + (50 + 38 * Math.sin(a)) + '" y1="' + (50 - 38 * Math.cos(a)) +
+               '" x2="' + (50 + 42 * Math.sin(a)) + '" y2="' + (50 - 42 * Math.cos(a)) +
+               '" stroke="#e8d5a8" stroke-width="2" stroke-linecap="round"></line>';
+    }
+    return (
+      '<div class="wclock-wrap">' +
+        '<svg class="wclock-face" viewBox="0 0 100 100">' +
+          '<circle cx="50" cy="50" r="44" fill="none" stroke="#e8d5a8" stroke-width="3"></circle>' + marks +
+          '<line id="wclockH" x1="50" y1="50" x2="50" y2="30" stroke="#e8d5a8" stroke-width="4" stroke-linecap="round"></line>' +
+          '<line id="wclockM" x1="50" y1="50" x2="50" y2="20" stroke="#e8d5a8" stroke-width="3" stroke-linecap="round"></line>' +
+          '<line id="wclockS" x1="50" y1="52" x2="50" y2="16" stroke="#7a1010" stroke-width="1.5" stroke-linecap="round"></line>' +
+          '<circle cx="50" cy="50" r="2.5" fill="#7a1010"></circle>' +
+        '</svg>' +
+        '<div><div class="wclock-digits" id="wclockDigit"></div><div class="wclock-secs" id="wclockSec"></div></div>' +
+      '</div>'
+    );
+  }
+
+  function startClock() {
+    clockHandH = document.getElementById("wclockH");
+    clockHandM = document.getElementById("wclockM");
+    clockHandS = document.getElementById("wclockS");
+    clockDigit = document.getElementById("wclockDigit");
+    clockSec = document.getElementById("wclockSec");
+    renderClock();
+    if (clockTimer) clearInterval(clockTimer);
+    clockTimer = setInterval(renderClock, 1000);
+  }
+
+  function stopClock() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  }
+
+  /* ---- weather ---- */
+
+  var weatherKey = "isaacos_weather";
+  var weatherState = null;
+  try { weatherState = JSON.parse(localStorage.getItem(weatherKey) || "null"); } catch (e) { weatherState = null; }
+  var weatherLastFetch = 0;
+
+  function wmoIcon(code, isDay) {
+    if (code === 0) return isDay ? "☀" : "☾";
+    if (code === 1 || code === 2) return isDay ? "⛅" : "☁";
+    if (code === 3) return "☁";
+    if (code === 45 || code === 48) return "🌫";
+    if (code === 51 || code === 53 || code === 55 || code === 56 || code === 57) return "🌦";
+    if (code === 61 || code === 63 || code === 65 || code === 66 || code === 67) return "☂";
+    if (code === 71 || code === 73 || code === 75 || code === 77) return "❄";
+    if (code === 80 || code === 81 || code === 82) return "☂";
+    if (code === 85 || code === 86) return "❄";
+    if (code === 95) return "⚡";
+    if (code === 96 || code === 99) return "⛈";
+    return "☁";
+  }
+
+  function wmoLabel(code) {
+    if (code === 0) return "clear";
+    if (code === 1) return "mainly clear";
+    if (code === 2) return "partly cloudy";
+    if (code === 3) return "overcast";
+    if (code === 45 || code === 48) return "fog";
+    if (code === 51 || code === 53 || code === 55) return "drizzle";
+    if (code === 56 || code === 57) return "freezing drizzle";
+    if (code === 61 || code === 63 || code === 65) return "rain";
+    if (code === 66 || code === 67) return "freezing rain";
+    if (code === 71 || code === 73 || code === 75) return "snow";
+    if (code === 77) return "snow grains";
+    if (code === 80 || code === 81 || code === 82) return "rain showers";
+    if (code === 85 || code === 86) return "snow showers";
+    if (code === 95) return "thunderstorm";
+    if (code === 96 || code === 99) return "thunderstorm with hail";
+    return "unknown";
+  }
+
+  function weatherSave() {
+    try {
+      localStorage.setItem(weatherKey, JSON.stringify(weatherState ? { name: weatherState.name, lat: weatherState.lat, lon: weatherState.lon } : null));
+    } catch (e) {}
+  }
+
+  function weatherCardRefresh() {
+    var card = document.querySelector('#desktopWidgets .widget-card[data-widget="weather"]');
+    if (card) card.outerHTML = cardHtml("weather");
+  }
+
+  function weatherFetch() {
+    if (!weatherState) return;
+    var now = Date.now();
+    if (now - weatherLastFetch < 60000) return;
+    weatherLastFetch = now;
+    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + weatherState.lat +
+      "&longitude=" + weatherState.lon + "&current=temperature_2m,weather_code,is_day&timezone=auto";
+    fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.current) return;
+      weatherState.temp = d.current.temperature_2m;
+      weatherState.code = d.current.weather_code;
+      weatherState.isDay = d.current.is_day === 1;
+      weatherCardRefresh();
+    }).catch(function () {});
+  }
+
+  function weatherGeocode(q) {
+    var url = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(q) + "&count=1&language=en&format=json";
+    return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.results || !d.results.length) return null;
+      var r = d.results[0];
+      return { name: r.name + (r.country ? ", " + r.country : ""), lat: r.latitude, lon: r.longitude };
+    });
+  }
+
+  function weatherSetCity(q) {
+    weatherGeocode(q).then(function (loc) {
+      if (!loc) {
+        var wl = document.querySelector('#desktopWidgets .widget-card[data-widget="weather"] .wweather-label');
+        if (wl) wl.textContent = "city not found";
+        return;
+      }
+      weatherState = { name: loc.name, lat: loc.lat, lon: loc.lon };
+      weatherSave();
+      delete weatherState.temp;
+      delete weatherState.code;
+      delete weatherState.isDay;
+      weatherLastFetch = 0;
+      weatherCardRefresh();
+      weatherFetch();
+    });
+  }
+
+  function buildWeather() {
+    var w = weatherState;
+    var icon = "☁", label = "set a city to get weather", temp = "--";
+    if (w && w.temp !== undefined) {
+      icon = wmoIcon(w.code, w.isDay);
+      label = wmoLabel(w.code);
+      temp = Math.round(w.temp) + "°C";
+    }
+    return (
+      '<div class="wweather">' +
+        '<span class="wweather-icon">' + icon + '</span>' +
+        '<div>' +
+          '<div class="wweather-temp">' + temp + '</div>' +
+          '<div class="wweather-label">' + label + '</div>' +
+          (w ? '<div class="wweather-city">' + compEsc(w.name) + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="wweather-setup">' +
+        '<input class="wweather-input" placeholder="city..." value="">' +
+        '<button class="wweather-go" data-waction="weather-go">set</button>' +
+      '</div>'
+    );
+  }
+
+  /* ---- calendar ---- */
+
+  function buildCalendar() {
+    var d = new Date();
+    var year = d.getFullYear(), month = d.getMonth(), today = d.getDate();
+    var firstDay = new Date(year, month, 1).getDay();
+    var days = new Date(year, month + 1, 0).getDate();
+    var names = ["S", "M", "T", "W", "T", "F", "S"];
+    var html = '<div class="wcalendar"><div class="wcalendar-title">' +
+      d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) +
+      '</div><div class="wcalendar-grid">';
+    names.forEach(function (n) { html += '<div class="wcalendar-dow">' + n + '</div>'; });
+    for (var i = 0; i < firstDay; i++) html += '<div class="wcalendar-day blank">·</div>';
+    for (var day = 1; day <= days; day++) {
+      html += '<div class="wcalendar-day' + (day === today ? " today" : "") + '">' + day + '</div>';
+    }
+    return html + '</div></div>';
+  }
+
+  /* ---- todo ---- */
+
+  function todoHtml() {
+    var html = '<div class="wtodo"><div class="wtodo-inputrow">' +
+      '<input class="wtodo-input" id="wtodoInput" placeholder="remember to..." maxlength="60">' +
+      '<button class="wtodo-add" data-waction="todo-add">add</button>' +
+      '</div><div class="wtodo-list" id="wtodoList">';
+    if (todoItems.length === 0) {
+      html += '<div class="wcalendar-title">nothing to do. lucky.</div>';
+    }
+    todoItems.forEach(function (it, idx) {
+      html += '<div class="wtodo-item">' +
+        '<span class="wtodo-check' + (it.done ? " done" : "") + '" data-waction="todo-toggle" data-idx="' + idx + '">' + (it.done ? "✓" : "") + '</span>' +
+        '<span class="wtodo-text' + (it.done ? " done" : "") + '">' + compEsc(it.t) + '</span>' +
+        '<button class="wtodo-del" data-waction="todo-del" data-idx="' + idx + '">✕</button>' +
+      '</div>';
+    });
+    return html + '</div></div>';
+  }
+
+  /* ---- timer ---- */
+
+  var timerLeft = 25 * 60;
+  var timerRunning = false;
+  var timerTimer = null;
+  var timerTextEl = null, timerRingEl = null;
+
+  var TIMER_R = 44;
+  var TIMER_C = 2 * Math.PI * TIMER_R;
+
+  function timerRender() {
+    if (!timerTextEl) return;
+    var frac = timerLeft / (25 * 60);
+    var p = function (n) { return n < 10 ? "0" + n : "" + n; };
+    timerTextEl.textContent = p(Math.floor(timerLeft / 60)) + ":" + p(timerLeft % 60);
+    timerRingEl.setAttribute("stroke-dashoffset", TIMER_C * (1 - frac));
+  }
+
+  function timerTick() {
+    timerLeft--;
+    if (timerLeft <= 0) {
+      timerLeft = 0;
+      stopTimer();
+    }
+    timerRender();
+  }
+
+  function startTimer() {
+    if (timerRunning) return;
+    timerRunning = true;
+    timerTimer = setInterval(timerTick, 1000);
+  }
+
+  function stopTimer() {
+    timerRunning = false;
+    if (timerTimer) { clearInterval(timerTimer); timerTimer = null; }
+  }
+
+  function resetTimer() {
+    stopTimer();
+    timerLeft = 25 * 60;
+    timerRender();
+  }
+
+  function buildTimer() {
+    return (
+      '<div class="wtimer">' +
+        '<svg class="wtimer-ring" viewBox="0 0 100 100">' +
+          '<circle cx="50" cy="50" r="' + TIMER_R + '" fill="none" stroke="#241a14" stroke-width="6"></circle>' +
+          '<circle id="wtimerRing" cx="50" cy="50" r="' + TIMER_R + '" fill="none" stroke="#690e0e" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 50 50)"></circle>' +
+          '<text id="wtimerText" x="50" y="57" text-anchor="middle" font-family="VT323, monospace" font-size="22" fill="#e8d5a8"></text>' +
+        '</svg>' +
+        '<div class="wtimer-btns">' +
+          '<button class="wtimer-btn start" data-waction="timer-start">start</button>' +
+          '<button class="wtimer-btn reset" data-waction="timer-reset">reset</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function syncTimer() {
+    timerTextEl = document.getElementById("wtimerText");
+    timerRingEl = document.getElementById("wtimerRing");
+    if (timerTextEl) timerRender();
+  }
+
+  /* ---- mom ---- */
+
+  var momLines = [
+    "i will do my best to save him, my lord.",
+    "i will follow your instructions, lord. i have faith in thee.",
+    "yes lord, anything!",
+    "i will do as i'm told, my lord. i love you above all else.",
+    "isaac!",
+    "isaac... what are you drawing?",
+    "give it to me now.",
+    "this is what you think of me? this is what i am to you?! a monster?!",
+    "i'll show you a monster!",
+    "you are just like your father... i can't even look at you.",
+    "how could you?! you're just like him!",
+    "our father who art in heaven, hallowed be thy name..."
+  ];
+  var momIdx = Math.floor(Math.random() * momLines.length);
+
+  function buildMom() {
+    return (
+      '<div class="wmom">' +
+        '<img class="wmom-avatar" src="img/avatar-isaac.png" alt="">' +
+        '<div class="wmom-text">' + momLines[momIdx] +
+          '<div class="wmom-sign">— mom says</div>' +
+        '</div>' +
+        '<button class="wmom-reroll" data-waction="mom-reroll">⟳</button>' +
+      '</div>'
+    );
+  }
+
+  /* ---- item of the day ---- */
+
+  var iodKey = "isaacos_iod";
+  var iodState = null;
+  try { iodState = JSON.parse(localStorage.getItem(iodKey) || "null"); } catch (e) { iodState = null; }
+
+  function iodDay() {
+    var d = new Date();
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+
+  function iodToday() {
+    var day = iodDay();
+    if (!iodState || iodState.date !== day) iodState = { date: day, override: -1 };
+    return iodState;
+  }
+
+  function iodSave() {
+    try { localStorage.setItem(iodKey, JSON.stringify(iodState)); } catch (e) {}
+  }
+
+  function iodDailyIndex(len) {
+    var d = new Date();
+    var seed = (d.getFullYear() + 1) * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+    var x = Math.sin(seed) * 10000;
+    var idx = Math.floor((x - Math.floor(x)) * len);
+    return idx % len;
+  }
+
+  function buildIod() {
+    var items = window.ISAAC_ITEMS || [];
+    if (!items.length) return '<div class="wiod wiod-empty">no items available</div>';
+    var st = iodToday();
+    var item = st.override >= 0 ? items[st.override % items.length] : items[iodDailyIndex(items.length)];
+    if (!item) return '<div class="wiod wiod-empty">no item today</div>';
+    var used = st.override >= 0;
+    return (
+      '<div class="wiod">' +
+        '<img class="wiod-icon" src="' + (item.icon || "") + '" alt="" loading="lazy">' +
+        '<div class="wiod-body">' +
+          '<div class="wiod-name">' + item.name + '</div>' +
+          '<div class="wiod-quote">"' + (item.quote || "") + '"</div>' +
+          '<div class="wiod-desc">' + (item.description || "") + '</div>' +
+        '</div>' +
+        '<button class="wiod-reroll' + (used ? " used" : "") + '" data-waction="iod-reroll" title="' + (used ? "reroll used for today" : "reroll (once per day)") + '">' +
+          '<img class="wiod-reroll-icon" src="img/Collectible_The_D6_icon.webp" alt="reroll">' +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  /* ---- render grid ---- */
+
+  var builders = {
+    clock: buildClock,
+    weather: buildWeather,
+    calendar: buildCalendar,
+    todo: todoHtml,
+    timer: buildTimer,
+    mom: buildMom,
+    iod: buildIod
+  };
+
+  function cardHtml(id) {
+    var names = { clock: "Clock", weather: "Weather", calendar: "Calendar", todo: "To-do", timer: "Timer", mom: "Mom says", iod: "Item of the day" };
+    var glyphs = { clock: "◷", weather: "☂", calendar: "▦", todo: "✎", timer: "⏱", mom: "✍", iod: "★" };
+    return '<div class="widget-card" data-widget="' + id + '">' +
+      '<div class="widget-card-head"><span class="widget-card-title">' + names[id] + '</span><span class="wcalendar-title">' + glyphs[id] + '</span></div>' +
+      builders[id]() +
+    '</div>';
+  }
+
+  function syncWidgets() {
+    var clockVisible = pinned.indexOf("clock") !== -1;
+    if (clockVisible) startClock(); else stopClock();
+    syncTimer();
+    if (pinned.indexOf("weather") !== -1 && weatherState) weatherFetch();
+  }
+
+  function renderGrid() {
+    desktop.innerHTML = "";
+    if (pinned.length === 0) {
+      stopClock();
+      return;
+    }
+    var html = "";
+    pinned.forEach(function (id) {
+      if (builders[id]) html += cardHtml(id);
+    });
+    desktop.innerHTML = html;
+    syncWidgets();
+  }
+
+  /* ---- events ---- */
+
+  function renderPreviews() {
+    preview.innerHTML = "";
+    var colA = document.createElement("div");
+    colA.className = "wp-col";
+    var colB = document.createElement("div");
+    colB.className = "wp-col";
+    var ids = Object.keys(builders);
+    ids.forEach(function (id, i) {
+      var item = document.createElement("div");
+      item.className = "widgets-preview-item" + (pinned.indexOf(id) !== -1 ? " active" : "");
+      item.setAttribute("data-widget", id);
+      item.innerHTML = cardHtml(id);
+      (i % 2 === 0 ? colA : colB).appendChild(item);
+    });
+    preview.appendChild(colA);
+    preview.appendChild(colB);
+  }
+
+  preview.addEventListener("click", function (e) {
+    var item = e.target.closest(".widgets-preview-item");
+    if (!item) return;
+    var id = item.getAttribute("data-widget");
+    var idx = pinned.indexOf(id);
+    if (idx === -1) pinned.push(id);
+    else pinned.splice(idx, 1);
+    savePinned();
+    renderGrid();
+    renderPreviews();
+  });
+
+  desktop.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-waction]");
+    if (!btn) return;
+    var action = btn.getAttribute("data-waction");
+    var card = btn.closest(".widget-card");
+
+    if (action === "weather-go") {
+      var inp = card ? card.querySelector(".wweather-input") : null;
+      var q = (inp && inp.value || "").trim();
+      if (q) weatherSetCity(q);
+      return;
+    }
+
+    if (action === "todo-add") {
+      var input = document.getElementById("wtodoInput");
+      var val = (input.value || "").trim();
+      if (!val) return;
+      todoItems.push({ t: val, done: false });
+      saveTodo();
+      if (card) card.outerHTML = cardHtml("todo");
+      var ni = document.getElementById("wtodoInput");
+      if (ni) ni.focus();
+      return;
+    }
+
+    if (action === "todo-toggle") {
+      var ti = parseInt(btn.getAttribute("data-idx"), 10);
+      if (!isNaN(ti) && todoItems[ti]) todoItems[ti].done = !todoItems[ti].done;
+      saveTodo();
+      if (card) card.outerHTML = cardHtml("todo");
+      return;
+    }
+
+    if (action === "todo-del") {
+      var di = parseInt(btn.getAttribute("data-idx"), 10);
+      if (!isNaN(di)) todoItems.splice(di, 1);
+      saveTodo();
+      if (card) card.outerHTML = cardHtml("todo");
+      return;
+    }
+
+    if (action === "timer-start") {
+      var btnEl = btn;
+      if (timerRunning) {
+        stopTimer();
+        btnEl.textContent = "start";
+      } else {
+        if (timerLeft <= 0) { timerLeft = 25 * 60; }
+        startTimer();
+        btnEl.textContent = "pause";
+      }
+      return;
+    }
+
+    if (action === "timer-reset") {
+      resetTimer();
+      var startBtn = desktop.querySelector("[data-waction='timer-start']");
+      if (startBtn) startBtn.textContent = "start";
+      return;
+    }
+
+    if (action === "mom-reroll") {
+      momIdx = (momIdx + 1) % momLines.length;
+      if (card) card.outerHTML = cardHtml("mom");
+      return;
+    }
+
+    if (action === "iod-reroll") {
+      var iodItems = window.ISAAC_ITEMS || [];
+      if (iodItems.length && iodToday().override < 0) {
+        iodState.override = Math.floor(Math.random() * iodItems.length);
+        iodSave();
+        if (card) card.outerHTML = cardHtml("iod");
+      }
+      return;
+    }
+  });
+
+  desktop.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.target.classList.contains("wtodo-input")) {
+      var input = e.target;
+      var val = (input.value || "").trim();
+      if (!val) return;
+      todoItems.push({ t: val, done: false });
+      saveTodo();
+      var card = input.closest(".widget-card");
+      if (card) card.outerHTML = cardHtml("todo");
+      var ni = document.getElementById("wtodoInput");
+      if (ni) ni.focus();
+    }
+    if (e.key === "Enter" && e.target.classList.contains("wweather-input")) {
+      var wq = (e.target.value || "").trim();
+      if (wq) weatherSetCity(wq);
+    }
+  });
+
+  /* ---- init ---- */
+
+  renderPreviews();
+  renderGrid();
 })();

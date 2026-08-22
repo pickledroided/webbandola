@@ -298,7 +298,7 @@ function reqEntities(req) {
   const fre = /\[\[File:([^\]|]+?\.(?:png|jpg|jpeg))[^\]]*?\]\]/g;
   let m;
   while ((m = fre.exec(req || ""))) {
-    files.push({ file: m[1].trim(), end: m.index + m[0].length });
+    files.push({ file: m[1].trim().replace(/\s+/g, " "), end: m.index + m[0].length });
   }
   const lre = /\[\[:([^|\]]+)(?:\|([^\]]*))?\]\]/g;
   while ((m = lre.exec(req || ""))) {
@@ -333,12 +333,21 @@ function poolsForName(name) {
   const m = poolByItem[(name || "").toLowerCase()];
   return m ? [...m.keys()].sort() : [];
 }
+// Display-name fixes: the wiki cargo table collapses these to the same name
+const NAME_FIXES = {
+  120: "Odd Mushroom (Thin)",
+  121: "Odd Mushroom (Large)",
+  551: "Broken Shovel!",
+};
 for (const p of parents) {
   const key = p.alias || p.link;
+  // Skip trinkets that leaked into the collectible table (e.g. Tonsil)
+  if (imageMap[key] && /^Trinket_/i.test(imageMap[key].file || "")) continue;
+  const pid = p.id === "" || p.id == null ? null : parseInt(p.id, 10);
   const entry = {
     key: p.alias || p.link,
-    id: p.id === "" || p.id == null ? null : parseInt(p.id, 10),
-    name: (nameMap[key] && nameMap[key].name) || key,
+    id: pid,
+    name: NAME_FIXES[pid] || (nameMap[key] && nameMap[key].name) || key,
     active: p.is_activated === "1",
     dlc: parseInt(p.dlc, 10) || 0,
     quality: qualityMap[key] ? parseInt(qualityMap[key].quality, 10) : null,

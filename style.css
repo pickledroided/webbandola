@@ -21,6 +21,8 @@
   --ui-card: #241a14;
   --ui-card-hover: #33241a;
   --ui-text: #e8d5a8;
+  --ui-dim: #7a6a5a;
+  --ui-text-dim: #7a6a5a;
   --wallpaper: url("wallpapers/default-wall.png");
 }
 
@@ -516,6 +518,7 @@ button {
 #musicicon { top: 224px; left: 104px; }
 #settingsicon { top: 448px; left: 104px; }
 #painticon { top: 336px; left: 104px; }
+#widgetsicon { top: 112px; left: 104px; }
 
 .appicon:hover {
   background: rgba(232, 213, 168, 0.06);
@@ -3495,4 +3498,554 @@ button {
   font-size: 24px;
   color: #bbb;
   opacity: 0.9;
+}
+
+/* =========================================================
+   WIDGETS APP
+   ========================================================= */
+
+#widgets {
+  width: 640px;
+  height: 500px;
+}
+
+.widgets-app {
+  display: flex;
+  flex-direction: column;
+  margin: 12px;
+  background: var(--ui-bg);
+  border: 2px solid #000;
+  box-shadow: 0 0 0 2px var(--blood-dark);
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.widgets-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.wp-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.widgets-preview-item {
+  width: 100%;
+  zoom: 1;
+  cursor: pointer;
+  border-radius: 10px;
+  outline: 2px solid transparent;
+  transition: outline-color 0.15s;
+  user-select: none;
+}
+
+.widgets-preview-item:hover {
+  outline-color: var(--blood);
+}
+
+.widgets-preview-item.active {
+  outline-color: var(--blood-hover);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blood) 55%, transparent);
+}
+
+.widgets-preview-item * {
+  pointer-events: none;
+}
+
+.widget-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--ui-bg);
+  border: 1px solid #000;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blood) 30%, transparent);
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 120px;
+}
+
+.widget-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 2px solid var(--ui-card-hover);
+  padding-bottom: 6px;
+}
+
+.widget-card-title {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  color: var(--ui-text);
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.widget-card-title::before {
+  content: "✦ ";
+  color: var(--blood);
+}
+
+/* clock */
+.wclock-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.wclock-face {
+  width: 96px;
+  height: 96px;
+  flex: none;
+}
+
+.wclock-digits {
+  font-family: 'VT323', monospace;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--ui-text);
+}
+
+.wclock-secs {
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  color: var(--blood);
+}
+
+/* weather */
+.wweather {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0;
+}
+
+.wweather-icon {
+  font-size: 40px;
+  line-height: 1;
+  flex: none;
+}
+
+.wweather-temp {
+  font-family: 'VT323', monospace;
+  font-size: 32px;
+  line-height: 1;
+  color: var(--ui-text);
+}
+
+.wweather-label {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: var(--ui-text-dim, #7a6a5a);
+}
+
+.wweather-city {
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+  color: var(--ui-text-dim, #7a6a5a);
+}
+
+.wweather-setup {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.wweather-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  padding: 3px 8px;
+}
+
+.wweather-go {
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: var(--blood-dark);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  padding: 3px 12px;
+  cursor: pointer;
+}
+
+.wweather-go:hover {
+  background: var(--blood);
+}
+
+/* calendar */
+.wcalendar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wcalendar-title {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: var(--ui-text-dim, #7a6a5a);
+}
+
+.wcalendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  gap: 2px;
+}
+
+.wcalendar-dow {
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+  color: var(--blood);
+}
+
+.wcalendar-day {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--ui-text);
+}
+
+.wcalendar-day.today {
+  background: var(--blood);
+  border-radius: 6px;
+  color: #fff;
+}
+
+.wcalendar-day.blank {
+  color: transparent;
+}
+
+/* todo */
+.wtodo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wtodo-inputrow {
+  display: flex;
+  gap: 8px;
+}
+
+.wtodo-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #000;
+  border-radius: 8px;
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  padding: 4px 10px;
+  outline: none;
+}
+
+.wtodo-input:focus {
+  box-shadow: 0 0 0 1px var(--blood);
+}
+
+.wtodo-add {
+  border: 1px solid #000;
+  border-radius: 8px;
+  background: var(--blood);
+  color: #fff;
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.wtodo-add:hover {
+  background: var(--blood-hover);
+}
+
+.wtodo-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 120px;
+  overflow-y: auto;
+  gap: 2px;
+}
+
+.wtodo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 2px;
+}
+
+.wtodo-check {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background: var(--ui-panel);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+}
+
+.wtodo-check.done {
+  background: var(--blood);
+}
+
+.wtodo-text {
+  flex: 1;
+  min-width: 0;
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  color: var(--ui-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wtodo-text.done {
+  color: var(--ui-text-dim, #7a6a5a);
+  text-decoration: line-through;
+}
+
+.wtodo-del {
+  border: none;
+  background: none;
+  color: var(--ui-text-dim, #7a6a5a);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.wtodo-del:hover {
+  color: var(--blood);
+}
+
+/* timer */
+.wtimer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.wtimer-ring {
+  width: 96px;
+  height: 96px;
+  flex: none;
+}
+
+.wtimer-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wtimer-btn {
+  border: 1px solid #000;
+  border-radius: 8px;
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  padding: 5px 20px;
+  cursor: pointer;
+}
+
+.wtimer-btn.start {
+  background: var(--blood);
+  color: #fff;
+}
+
+.wtimer-btn.start:hover {
+  background: var(--blood-hover);
+}
+
+.wtimer-btn.reset {
+  background: var(--ui-card);
+  color: var(--ui-text);
+}
+
+.wtimer-btn.reset:hover {
+  background: var(--ui-card-hover);
+}
+
+/* mom */
+.wmom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.wmom-avatar {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid #000;
+  box-shadow: 0 0 0 1px var(--blood);
+}
+
+.wmom-text {
+  flex: 1;
+  font-family: 'VT323', monospace;
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--ui-text);
+}
+
+.wmom-sign {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: var(--ui-text-dim, #7a6a5a);
+}
+
+.wmom-reroll {
+  border: 1px solid #000;
+  border-radius: 999px;
+  background: var(--ui-card-hover);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  padding: 2px 12px;
+  cursor: pointer;
+}
+
+.wmom-reroll:hover {
+  background: color-mix(in srgb, var(--blood) 40%, #000);
+}
+
+/* item of the day */
+.wiod {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.wiod-empty {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: var(--ui-text-dim, #7a6a5a);
+}
+
+.wiod-icon {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  object-fit: contain;
+  filter: drop-shadow(0 0 2px var(--blood));
+}
+
+.wiod-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.wiod-name {
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--ui-text);
+}
+
+.wiod-quote {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  color: var(--blood);
+  margin-top: 2px;
+}
+
+.wiod-desc {
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+  color: var(--ui-text-dim, #7a6a5a);
+  margin-top: 4px;
+}
+
+.wiod-reroll {
+  border: 1px solid #000;
+  border-radius: 999px;
+  background: var(--ui-card-hover);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  padding: 3px;
+  cursor: pointer;
+  flex: none;
+  line-height: 0;
+}
+
+.wiod-reroll-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.wiod-reroll:hover {
+  background: color-mix(in srgb, var(--blood) 40%, #000);
+}
+
+.wiod-reroll.used {
+  cursor: not-allowed;
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.wiod-reroll.used:hover {
+  background: var(--ui-card-hover);
+}
+
+/* =========================================================
+   DESKTOP WIDGETS
+   ========================================================= */
+
+#desktopWidgets {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap-reverse;
+  align-content: flex-start;
+  gap: 12px;
+  max-height: calc(100% - 120px);
+  padding-right: 2px;
+  pointer-events: none;
+}
+
+#desktopWidgets .widget-card {
+  pointer-events: auto;
+  width: 236px;
+}
+
+#desktopWidgets .widget-card {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blood) 30%, transparent), 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.widgets-hint {
+  padding: 14px;
+  color: var(--ui-text-dim, #7a6a5a);
+  font-family: 'VT323', monospace;
+  font-size: 18px;
 }

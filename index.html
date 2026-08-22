@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=VT323&display=swap" rel="stylesheet">
@@ -73,7 +74,13 @@
       <div class="appicon-img"><img src="img/Collectible_Rainbow_Baby_icon.webp" alt="paint"></div>
       <p class="appicon-label">Paint</p>
     </div>
-  </div>  
+    <div class="appicon" id="widgetsicon">
+      <div class="appicon-img"><img src="img/Collectible_Death_Certificate_icon.webp" alt="widgets"></div>
+      <p class="appicon-label">Widgets</p>
+    </div>
+  </div>
+
+  <div id="desktopWidgets"></div>  
 
   <div class="window" id="welcome">
     <div class="windowheader" id="welcomeheader">
@@ -521,6 +528,18 @@
         <div class="paint-section-label">Palette</div>
         <div class="paint-palette" id="paintPalette"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="window" id="widgets" style="display: none;">
+    <div class="windowheader" id="widgetsheader">
+      <span class="window-title">Widgets</span>
+      <div class="minbutton" id="widgetsmin" title="Minimize"></div>
+      <div class="closebutton" id="widgetsclose"></div>
+    </div>
+    <div class="widgets-app">
+      <div class="widgets-preview" id="widgetsPreview"></div>
+      <div class="widgets-hint">click a preview to pin it to the desktop ✦</div>
     </div>
   </div>
 </div>
