@@ -41,6 +41,14 @@ function initOsBase() {
 
 function fitOsToScreen() {
   if (!osContainer) return;
+  if (window.self !== window.top) {
+    osContainer.style.transform = "none";
+    osContainer.style.width = "100%";
+    osContainer.style.height = "100%";
+    osContainer.style.left = "0px";
+    osContainer.style.top = "0px";
+    return;
+  }
 
   var scaleX = window.innerWidth / osBaseW;
   var scaleY = window.innerHeight / osBaseH;
@@ -219,6 +227,7 @@ function closeWindow(element) {
   renderDock();
   element.classList.add("closing");
   element.addEventListener("animationend", function () {
+    if (!element.classList.contains("closing")) return;
     element.classList.remove("closing");
     element.style.display = "none";
   }, { once: true });
@@ -234,6 +243,7 @@ function minWindow(element) {
   element.style.setProperty("--genie-dy", dy + "px");
   element.classList.add("genie-out");
   element.addEventListener("animationend", function () {
+    if (!element.classList.contains("genie-out")) return;
     element.classList.remove("genie-out");
     element.style.display = "none";
     openApps[element.id] = "minimized";
@@ -795,7 +805,14 @@ function browserResolve(input) {
 function browserGo(url) {
   if (!url) return;
 
-  browserFrame.src = url;
+  var isSame = url === browserCurrentUrl && browserFrame.src;
+  if (isSame) {
+    try { browserFrame.contentWindow.location.reload(); } catch (e) {
+      browserFrame.src = url + (url.indexOf("?") !== -1 ? "&" : "?") + "_=" + Date.now();
+    }
+  } else {
+    browserFrame.src = url;
+  }
   browserCurrentUrl = url;
   browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
   browserHistory.push(url);
@@ -4223,6 +4240,10 @@ initPixelPaint();
   setTimeout(function () {
     if (!ready && !started) overlay.classList.add("hidden");
   }, 4000);
+
+  if (window.self !== window.top) {
+    setTimeout(function () { overlay.classList.add("hidden"); }, 800);
+  }
 })();
 
 /* =========================================================
