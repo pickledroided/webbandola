@@ -69,6 +69,10 @@ function handleWindowTap(element) {
   biggestIndex++;
   element.style.zIndex = biggestIndex;
   topBar.style.zIndex = biggestIndex + 1;
+  Array.prototype.forEach.call(document.querySelectorAll(".window.focused"), function (w) {
+    if (w !== element) w.classList.remove("focused");
+  });
+  element.classList.add("focused");
   deselectIcon(selectedIcon);
 }
 
@@ -91,6 +95,48 @@ function initializeWindow(id) {
   closeButton.addEventListener("click", function () {
     closeWindow(element);
   });
+
+  var header = element.querySelector(".windowheader");
+  if (header) {
+    var maxState = null;
+    function toggleMaximize() {
+      if (maxState) {
+        element.style.left = maxState.left;
+        element.style.top = maxState.top;
+        element.style.width = maxState.width;
+        element.style.height = maxState.height;
+        element.style.transform = maxState.transform;
+        maxState = null;
+        maxButton.classList.remove("restore");
+      } else {
+        maxState = {
+          left: element.style.left,
+          top: element.style.top,
+          width: element.style.width,
+          height: element.style.height,
+          transform: element.style.transform
+        };
+        var osc = document.getElementById("os");
+        var tbe = document.getElementById("top");
+        var tbH = tbe ? tbe.offsetHeight : 40;
+        element.style.left = "0px";
+        element.style.top = tbH + "px";
+        element.style.width = osc.clientWidth + "px";
+        element.style.height = (osc.clientHeight - tbH) + "px";
+        element.style.transform = "none";
+        maxButton.classList.add("restore");
+      }
+    }
+    var maxButton = document.createElement("div");
+    maxButton.className = "maxbutton";
+    maxButton.title = "Maximize";
+    maxButton.addEventListener("click", toggleMaximize);
+    header.insertBefore(maxButton, closeButton);
+    header.addEventListener("dblclick", function (e) {
+      if (e.target.closest(".minbutton,.closebutton,.maxbutton")) return;
+      toggleMaximize();
+    });
+  }
 
   var minButton = document.querySelector("#" + id + "min");
   if (minButton) {
@@ -151,9 +197,14 @@ function openWindow(element) {
   element.classList.remove("closing");
   element.classList.remove("genie-out");
   element.style.display = "flex";
+  if (element.id === "widgets") clearWidgetsBadge();
   biggestIndex++;
   element.style.zIndex = biggestIndex;
   topBar.style.zIndex = biggestIndex + 1;
+  Array.prototype.forEach.call(document.querySelectorAll(".window.focused"), function (w) {
+    if (w !== element) w.classList.remove("focused");
+  });
+  element.classList.add("focused");
   openApps[element.id] = "open";
   renderDock();
   element.classList.remove("opening");
@@ -163,6 +214,7 @@ function openWindow(element) {
 
 function closeWindow(element) {
   element.classList.remove("opening");
+  element.classList.remove("focused");
   openApps[element.id] = "closed";
   renderDock();
   element.classList.add("closing");
@@ -287,6 +339,97 @@ function dragElement(element) {
 }
 
 var selectedIcon = undefined;
+
+/* ---- toast feedback ---- */
+
+var toastStack = null;
+var toastTimer = null;
+
+function showToast(msg) {
+  var os = document.getElementById("os");
+  if (!os) return;
+  if (!toastStack) {
+    toastStack = document.createElement("div");
+    toastStack.id = "toastStack";
+    os.appendChild(toastStack);
+  }
+  var t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  toastStack.appendChild(t);
+  requestAnimationFrame(function () { t.classList.add("show"); });
+  setTimeout(function () {
+    t.classList.remove("show");
+    setTimeout(function () { t.remove(); }, 300);
+  }, 2200);
+}
+
+function showToastDebounced(msg, delay) {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { showToast(msg); }, delay || 1200);
+}
+
+function showToastAction(msg, actionLabel, cb) {
+  var os = document.getElementById("os");
+  if (!os) return;
+  if (!toastStack) {
+    toastStack = document.createElement("div");
+    toastStack.id = "toastStack";
+    os.appendChild(toastStack);
+  }
+  var t = document.createElement("div");
+  t.className = "toast toast-action";
+  t.innerHTML = '<span class="toast-msg"></span><button class="toast-undo"></button>';
+  t.querySelector(".toast-msg").textContent = msg;
+  t.querySelector(".toast-undo").textContent = actionLabel;
+  toastStack.appendChild(t);
+  requestAnimationFrame(function () { t.classList.add("show"); });
+  var done = false;
+  function dismiss(apply) {
+    if (done) return;
+    done = true;
+    if (apply && cb) cb();
+    t.classList.remove("show");
+    setTimeout(function () { t.remove(); }, 300);
+  }
+  t.querySelector(".toast-undo").addEventListener("click", function () { dismiss(true); });
+  setTimeout(function () { dismiss(false); }, 5000);
+}
+
+/* ---- badge widgets (timer finito) ---- */
+
+function clearWidgetsBadge() {
+  var b = document.querySelector("#widgetsicon .appicon-badge");
+  if (b) b.remove();
+}
+
+function notifyTimerDone() {
+  showToast("time's up!");
+  var icon = document.getElementById("widgetsicon");
+  if (!icon || icon.querySelector(".appicon-badge")) return;
+  var b = document.createElement("span");
+  b.className = "appicon-badge";
+  icon.appendChild(b);
+}
+
+/* ---- Esc: chiudi il viewer della gallery, altrimenti la finestra in primo piano ---- */
+
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  if (typeof compCloseLinkMenu === "function" && compLinkMenu) { compCloseLinkMenu(); return; }
+  var viewer = document.querySelector(".gallery-viewer.open");
+  if (viewer) {
+    viewer.classList.remove("open");
+    return;
+  }
+  var top = null, topZ = -1;
+  Array.prototype.forEach.call(document.querySelectorAll(".window"), function (w) {
+    if (w.style.display === "none" || w.classList.contains("closing")) return;
+    var z = parseInt(w.style.zIndex, 10) || 0;
+    if (z > topZ) { topZ = z; top = w; }
+  });
+  if (top) closeWindow(top);
+});
 
 function selectIcon(element) {
   element.classList.add("selected");
@@ -777,6 +920,7 @@ noteContent.addEventListener("input", function () {
   content[currentIndex].content = noteContent.innerHTML;
   content[currentIndex].date = new Date().toLocaleDateString("it-IT");
   saveNotes();
+  showToastDebounced("note saved", 1200);
 
   var heading = noteContent.querySelector("h2");
   if (heading) {
@@ -1215,7 +1359,7 @@ function compRenderRecommended() {
     html += '<div class="compendium-boss-list">' + list.map(compRecommendRow).join("") + '</div>';
   });
   compList.innerHTML = html || '<div class="compendium-empty">No recommended unlocks.</div>';
-  compDetail.innerHTML = '<div class="compendium-detail-empty">Recommended unlocks worth pursuing.</div>';
+  compDetail.innerHTML = '<div class="compendium-detail-empty">Recommended unlocks. <br>All of these items come from a list my friend gave me when I started. Shoutout to MattiLoc</div>';
 }
 
 function compRecommendRow(r) {
@@ -1231,9 +1375,9 @@ function compRecommendRow(r) {
       icon(r.challengeIcon, "compendium-boss-icon") +
       '<span class="compendium-boss-name">Challenge #' + r.challengeNumber + ': ' + compEsc(r.challenge) + '</span></a>' +
       arrow +
-      '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(r.item)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.item) + '">' +
+      '<button class="compendium-boss-item compendium-item-link" data-rec-item="' + compEsc(r.item) + '" title="' + compEsc(r.item) + '">' +
       icon(r.itemIcon, "compendium-boss-item-icon") +
-      '<span class="compendium-boss-item-name">' + compEsc(r.item) + '</span></a>' +
+      '<span class="compendium-boss-item-name">' + compEsc(r.item) + '</span></button>' +
       '</div>';
   }
   return '<div class="compendium-boss-row">' +
@@ -1245,10 +1389,67 @@ function compRecommendRow(r) {
     icon(r.bossIcon, "compendium-boss-item-icon") +
     '<span class="compendium-boss-name">' + compEsc(r.boss) + '</span></a>' +
     arrow +
-    '<a class="compendium-boss-item" href="' + compEsc(compItemWiki(r.item)) + '" target="_blank" rel="noopener" title="Open on wiki.gg: ' + compEsc(r.item) + '">' +
+    '<button class="compendium-boss-item compendium-item-link" data-rec-item="' + compEsc(r.item) + '" title="' + compEsc(r.item) + '">' +
     icon(r.itemIcon, "compendium-boss-item-icon") +
-    '<span class="compendium-boss-item-name">' + compEsc(r.item) + '</span></a>' +
+    '<span class="compendium-boss-item-name">' + compEsc(r.item) + '</span></button>' +
     '</div>';
+}
+
+/* ---- menu scelta: compendium o wiki ---- */
+
+var compLinkMenu = null;
+
+function compCloseLinkMenu() {
+  if (compLinkMenu) { compLinkMenu.remove(); compLinkMenu = null; }
+}
+
+function compOpenItemByName(name) {
+  var it = (window.ISAAC_ITEMS || []).find(function (i) { return i.name === name || i.key === name; });
+  if (!it) { window.open(compItemWiki(name), "_blank"); return; }
+  compSection = "items";
+  compUnlockCat = null;
+  compItems = window.ISAAC_ITEMS;
+  compSelectedKey = it.key;
+  compQuery = "";
+  compSearch.value = "";
+  compRenderTabs();
+  compBuildFilters();
+  compRender();
+  var sel = compList.querySelector(".compendium-card.selected");
+  if (sel) sel.scrollIntoView({ block: "nearest" });
+}
+
+function compShowLinkMenu(anchor, itemName) {
+  compCloseLinkMenu();
+  var inCompendium = (window.ISAAC_ITEMS || []).some(function (i) { return i.name === itemName || i.key === itemName; });
+  var os = document.getElementById("os");
+  compLinkMenu = document.createElement("div");
+  compLinkMenu.className = "compendium-link-menu";
+  if (inCompendium) {
+    var b1 = document.createElement("button");
+    b1.type = "button";
+    b1.textContent = "Open in Compendium";
+    b1.addEventListener("click", function () { compCloseLinkMenu(); compOpenItemByName(itemName); });
+    compLinkMenu.appendChild(b1);
+  }
+  var b2 = document.createElement("button");
+  b2.type = "button";
+  b2.textContent = "Open in wiki.gg";
+  b2.addEventListener("click", function () { compCloseLinkMenu(); window.open(compItemWiki(itemName), "_blank", "noopener"); });
+  compLinkMenu.appendChild(b2);
+  os.appendChild(compLinkMenu);
+  var s = getOsScale();
+  var or = os.getBoundingClientRect();
+  var r = anchor.getBoundingClientRect();
+  compLinkMenu.style.left = ((r.left - or.left) / s) + "px";
+  compLinkMenu.style.top = ((r.bottom - or.top) / s + 4) + "px";
+  requestAnimationFrame(function () { if (compLinkMenu) compLinkMenu.classList.add("open"); });
+  setTimeout(function () {
+    document.addEventListener("mousedown", function menuOutside(e) {
+      if (compLinkMenu && !compLinkMenu.contains(e.target)) compCloseLinkMenu();
+      document.removeEventListener("mousedown", menuOutside);
+    });
+  }, 0);
 }
 
 function compRenderHub() {
@@ -1267,7 +1468,7 @@ function compRenderHub() {
 function compRenderDetail() {
   var item = compItems.find(function (i) { return i.key === compSelectedKey; });
   if (!item) {
-    compDetail.innerHTML = '<div class="compendium-detail-empty">Select an ' + compSectionCfg().label.toLowerCase() + '</div>';
+    compDetail.innerHTML = '<div class="compendium-detail-empty">Select ' + compSectionCfg().label.toLowerCase() + '</div>';
     return;
   }
 
@@ -1569,6 +1770,75 @@ compSearch.addEventListener("input", function () {
   compRender();
 });
 
+/* ---- ricerche recenti compendium ---- */
+
+var recentSearchKey = "isaacos_recent_searches";
+var recentSearchBox = null;
+
+function recentSearchesGet() {
+  try { return JSON.parse(localStorage.getItem(recentSearchKey) || "[]"); }
+  catch (e) { return []; }
+}
+
+function recentSearchPush(term) {
+  var list = recentSearchesGet().filter(function (t) { return t !== term; });
+  list.unshift(term);
+  if (list.length > 5) list.length = 5;
+  try { localStorage.setItem(recentSearchKey, JSON.stringify(list)); } catch (e) {}
+}
+
+function recentSearchHide() {
+  if (recentSearchBox) { recentSearchBox.remove(); recentSearchBox = null; }
+}
+
+function recentSearchShow() {
+  var list = recentSearchesGet();
+  if (!list.length) return;
+  recentSearchHide();
+  recentSearchBox = document.createElement("div");
+  recentSearchBox.className = "compendium-recent";
+  var title = document.createElement("div");
+  title.className = "compendium-recent-title";
+  title.textContent = "recent searches";
+  recentSearchBox.appendChild(title);
+  list.forEach(function (t) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "compendium-recent-item";
+    b.textContent = t;
+    b.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      compQuery = t;
+      compSearch.value = t;
+      compRender();
+      recentSearchHide();
+    });
+    recentSearchBox.appendChild(b);
+  });
+  var osEl2 = document.getElementById("os");
+  osEl2.appendChild(recentSearchBox);
+  var s = getOsScale();
+  var or = osEl2.getBoundingClientRect();
+  var r = compSearch.getBoundingClientRect();
+  recentSearchBox.style.left = ((r.left - or.left) / s) + "px";
+  recentSearchBox.style.top = ((r.bottom - or.top) / s + 4) + "px";
+  recentSearchBox.style.width = (r.width / s) + "px";
+}
+
+if (compSearch) {
+  compSearch.addEventListener("focus", function () {
+    if (!compSearch.value) recentSearchShow();
+  });
+  compSearch.addEventListener("blur", function () { setTimeout(recentSearchHide, 150); });
+  compSearch.addEventListener("input", function () {
+    if (compSearch.value) recentSearchHide();
+    else recentSearchShow();
+  });
+  compSearch.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && compSearch.value.trim()) recentSearchPush(compSearch.value.trim());
+  });
+}
+
 compSortSel.addEventListener("change", function () {
   compSort = compSortSel.value;
   compRender();
@@ -1588,6 +1858,12 @@ if (compBackBtn) {
 }
 
 compList.addEventListener("click", function (e) {
+  var itemLink = e.target.closest(".compendium-item-link");
+  if (itemLink) {
+    e.preventDefault();
+    compShowLinkMenu(itemLink, itemLink.getAttribute("data-rec-item"));
+    return;
+  }
   var tile = e.target.closest(".compendium-hub-tile");
   if (tile) {
     compOpenUnlockCat(tile.getAttribute("data-cat"));
@@ -1676,7 +1952,7 @@ function galleryOpenViewer(index) {
   galleryViewer.classList.add("open");
 }
 
-galleryGrid.addEventListener("dblclick", function (e) {
+galleryGrid.addEventListener("click", function (e) {
   var tile = e.target.closest(".gallery-tile");
   if (!tile) return;
   galleryOpenViewer(parseInt(tile.getAttribute("data-index"), 10));
@@ -1736,7 +2012,15 @@ function applyWallpaper(file) {
     document.documentElement.style.removeProperty("--wallpaper");
     return;
   }
-  document.documentElement.style.setProperty("--wallpaper", 'url("' + themesWallpaperSrc(file).replace(/"/g, "%22") + '")');
+  var val;
+  if (file.indexOf("custom:") === 0) {
+    var c = customWallpapersGet().find(function (x) { return x.id === file.slice(7); });
+    if (!c) return;
+    val = 'url("' + c.data + '")';
+  } else {
+    val = 'url("' + themesWallpaperSrc(file).replace(/"/g, "%22") + '")';
+  }
+  document.documentElement.style.setProperty("--wallpaper", val);
   document.documentElement.setAttribute("data-wall", file === "default-wall.png" ? "sheol" : "");
 }
 
@@ -1965,6 +2249,7 @@ function themeRenderChips() {
       localStorage.removeItem(themesCustomKey);
       sliderFromColors(theme.colors);
       themeRenderChips();
+      showToast("theme: " + theme.name);
     });
   });
 
@@ -1983,6 +2268,7 @@ function themeRenderChips() {
       localStorage.setItem(themesCustomKey, JSON.stringify(saved.colors));
       sliderFromColors(saved.colors);
       themeRenderChips();
+      showToast("theme: custom");
     });
   });
 }
@@ -1990,21 +2276,126 @@ function themeRenderChips() {
 function themeRenderWallpaper() {
   if (!themesWallpaperGrid) return;
   var current = localStorage.getItem(wallpaperKey) || "";
-  themesWallpaperGrid.innerHTML = wallpaperList.map(function (w) {
+  var html = wallpaperList.map(function (w) {
     var img = '<img class="wallpaper-thumb" src="' + themesWallpaperSrc(w.file) + '" alt="">';
     return '<button class="wallpaper-card' + (w.file === current ? " active" : "") + '" data-file="' + w.file + '">' +
       img +
       '<span class="wallpaper-name">' + compEsc(w.name) + '</span>' +
       '</button>';
   }).join("");
+  html += customWallpapersGet().map(function (w) {
+    var img = '<img class="wallpaper-thumb" src="' + w.data + '" alt="">';
+    return '<button class="wallpaper-card' + ("custom:" + w.id === current ? " active" : "") + '" data-file="custom:' + w.id + '">' +
+      img +
+      '<span class="wallpaper-name">' + compEsc(w.name) + '</span>' +
+      '<span class="wallpaper-del" title="Remove">&times;</span>' +
+      '</button>';
+  }).join("");
+  html += '<button class="wallpaper-card wallpaper-add" title="Add your own">' +
+    '<span class="wallpaper-add-plus">+</span>' +
+    '<span class="wallpaper-name">add yours</span>' +
+    '</button>';
+  themesWallpaperGrid.innerHTML = html;
   themesWallpaperGrid.querySelectorAll(".wallpaper-card").forEach(function (card) {
-    card.addEventListener("click", function () {
+    card.addEventListener("click", function (e) {
+      if (e.target.closest(".wallpaper-del")) {
+        var id = card.getAttribute("data-file").slice(7);
+        customWallpapersSave(customWallpapersGet().filter(function (x) { return x.id !== id; }));
+        if (localStorage.getItem(wallpaperKey) === "custom:" + id) {
+          applyWallpaper("default-wall.png");
+          localStorage.setItem(wallpaperKey, "default-wall.png");
+        }
+        themeRenderWallpaper();
+        showToast("wallpaper removed");
+        return;
+      }
+      if (card.classList.contains("wallpaper-add")) {
+        themesEnsureWallpaperInput();
+        return;
+      }
       var file = card.getAttribute("data-file");
       applyWallpaper(file);
       localStorage.setItem(wallpaperKey, file);
+      var wEntry = null;
+      wallpaperList.forEach(function (wl) { if (wl.file === file) wEntry = wl; });
+      if (wEntry && wEntry.colors) {
+        applyThemeVars(wEntry.colors);
+        currentColors = wEntry.colors;
+        localStorage.setItem(themesKey, "wall:" + file);
+        localStorage.removeItem(themesCustomKey);
+        sliderFromColors(wEntry.colors);
+        themeRenderChips();
+      }
+      if (wEntry && wEntry.bg) {
+        currentBg = wEntry.bg;
+        applyThemeVars(currentBg);
+        localStorage.setItem(customBgKey, JSON.stringify(currentBg));
+      }
+      if (wEntry && (wEntry.colors || wEntry.bg)) {
+        showToast("theme: " + wEntry.name);
+      } else {
+        showToast("wallpaper: " + (wEntry ? wEntry.name : file.replace(/\.[^.]+$/, "")));
+      }
       themeRenderWallpaper();
     });
   });
+}
+
+var customWallsKey = "isaacos_custom_wallpapers";
+var wallpaperInput = null;
+
+function customWallpapersGet() {
+  try { return JSON.parse(localStorage.getItem(customWallsKey) || "[]"); }
+  catch (e) { return []; }
+}
+
+function customWallpapersSave(list) {
+  try { localStorage.setItem(customWallsKey, JSON.stringify(list)); } catch (e) {}
+}
+
+function themesEnsureWallpaperInput() {
+  if (!wallpaperInput) {
+    wallpaperInput = document.createElement("input");
+    wallpaperInput.type = "file";
+    wallpaperInput.accept = "image/*";
+    wallpaperInput.style.display = "none";
+    wallpaperInput.addEventListener("change", function () {
+      var f = wallpaperInput.files && wallpaperInput.files[0];
+      wallpaperInput.value = "";
+      if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var maxW = 1920;
+          var scale = Math.min(1, maxW / img.width);
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          var data = canvas.toDataURL("image/jpeg", 0.82);
+          var list = customWallpapersGet();
+          var entry = { id: "w" + Date.now(), name: f.name.replace(/\.[^.]+$/, "") || "custom", data: data };
+          list.push(entry);
+          try {
+            localStorage.setItem(customWallsKey, JSON.stringify(list));
+          } catch (err) {
+            showToast("storage full, image too big");
+            return;
+          }
+          applyWallpaper("custom:" + entry.id);
+          localStorage.setItem(wallpaperKey, "custom:" + entry.id);
+          themeRenderWallpaper();
+          showToast("wallpaper added");
+        };
+        img.onerror = function () { showToast("not a valid image"); };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(f);
+    });
+    document.body.appendChild(wallpaperInput);
+  }
+  wallpaperInput.click();
 }
 
 if (themesTabs && themesTabs.length && themesColors && themesWallpaper) {
@@ -2116,6 +2507,10 @@ function themeInit() {
     } catch (e) {}
   } else {
     var theme = themesList.find(function (t) { return t.id === saved; });
+    if (!theme && saved.indexOf("wall:") === 0) {
+      var wfile = saved.slice(5);
+      wallpaperList.forEach(function (wl) { if (wl.file === wfile && wl.colors) theme = { colors: wl.colors }; });
+    }
     if (!theme) theme = themesList[0];
     if (theme) {
       currentColors = theme.colors;
@@ -2769,10 +3164,13 @@ var settingsResetPositions = document.querySelector("#settingsResetPositions");
 if (settingsResetPositions) {
   settingsResetPositions.addEventListener("click", function () {
     try { localStorage.removeItem(iconPositionsKey); } catch (e) {}
+    try { localStorage.removeItem("isaacos_widget_positions"); } catch (e) {}
     document.querySelectorAll(".appicon").forEach(function (icon) {
       icon.style.left = "";
       icon.style.top = "";
     });
+    if (typeof window.widgetsResetLayout === "function") window.widgetsResetLayout();
+    showToast("positions reset");
   });
 }
 
@@ -3834,6 +4232,7 @@ initPixelPaint();
 (function initWidgets() {
   var desktop = document.getElementById("desktopWidgets");
   var preview = document.getElementById("widgetsPreview");
+  var osEl = document.getElementById("os");
   if (!desktop || !preview) return;
 
   var widgetsKey = "isaacos_widgets_pinned";
@@ -3852,6 +4251,84 @@ initPixelPaint();
   function savePinned() {
     try { localStorage.setItem(widgetsKey, JSON.stringify(pinned)); } catch (e) {}
   }
+
+  /* ---- drag & posizioni custom ---- */
+
+  var posKey = "isaacos_widget_positions";
+  var widgetPos = {};
+  try { widgetPos = JSON.parse(localStorage.getItem(posKey) || "{}"); } catch (e) { widgetPos = {}; }
+
+  function saveWidgetPos() {
+    try { localStorage.setItem(posKey, JSON.stringify(widgetPos)); } catch (e) {}
+  }
+
+  function placeSaved(card) {
+    var p = widgetPos[card.getAttribute("data-widget")];
+    if (!p) return;
+    card.style.position = "fixed";
+    card.style.margin = "0";
+    card.style.left = p.x + "px";
+    card.style.top = p.y + "px";
+  }
+
+  window.widgetsResetLayout = function () {
+    widgetPos = {};
+    saveWidgetPos();
+    Array.prototype.forEach.call(desktop.querySelectorAll(".widget-card"), function (c) {
+      c.style.position = "";
+      c.style.left = "";
+      c.style.top = "";
+      c.style.margin = "";
+    });
+  };
+
+  function findCard(id) {
+    return desktop.querySelector('.widget-card[data-widget="' + id + '"]');
+  }
+
+  function refreshWidget(id) {
+    var card = findCard(id);
+    if (!card) return;
+    card.outerHTML = cardHtml(id);
+    placeSaved(findCard(id));
+  }
+
+  document.addEventListener("mousedown", function (e) {
+    if (e.button !== 0) return;
+    var head = e.target.closest(".widget-card-head");
+    if (!head || e.target.closest("button,input")) return;
+    var card = head.closest(".widget-card");
+    if (!card || !card.getAttribute("data-widget")) return;
+    if (card.closest(".window")) return;
+    e.preventDefault();
+    var id = card.getAttribute("data-widget");
+    var s0 = getOsScale();
+    var osRect0 = osEl.getBoundingClientRect();
+    var r0 = card.getBoundingClientRect();
+    var offX = (e.clientX - osRect0.left) / s0 - (r0.left - osRect0.left) / s0;
+    var offY = (e.clientY - osRect0.top) / s0 - (r0.top - osRect0.top) / s0;
+
+    function onMove(ev) {
+      var sc = getOsScale();
+      var or = osEl.getBoundingClientRect();
+      var x = (ev.clientX - or.left) / sc - offX;
+      var y = (ev.clientY - or.top) / sc - offY;
+      x = Math.max(0, Math.min(x, osEl.clientWidth - card.offsetWidth));
+      y = Math.max(44, Math.min(y, osEl.clientHeight - card.offsetHeight));
+      card.style.position = "fixed";
+      card.style.margin = "0";
+      card.style.left = x + "px";
+      card.style.top = y + "px";
+      widgetPos[id] = { x: x, y: y };
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      saveWidgetPos();
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
 
   /* ---- individual widget state ---- */
 
@@ -3963,8 +4440,7 @@ initPixelPaint();
   }
 
   function weatherCardRefresh() {
-    var card = document.querySelector('#desktopWidgets .widget-card[data-widget="weather"]');
-    if (card) card.outerHTML = cardHtml("weather");
+    refreshWidget("weather");
   }
 
   function weatherFetch() {
@@ -4007,19 +4483,24 @@ initPixelPaint();
       weatherLastFetch = 0;
       weatherCardRefresh();
       weatherFetch();
+      showToast("weather: " + loc.name);
     });
   }
 
   function buildWeather() {
     var w = weatherState;
-    var icon = "☁", label = "set a city to get weather", temp = "--";
+    var icon = "☁", label = "set a city to get weather", temp = "--", loading = false;
     if (w && w.temp !== undefined) {
       icon = wmoIcon(w.code, w.isDay);
       label = wmoLabel(w.code);
       temp = Math.round(w.temp) + "°C";
+    } else if (w) {
+      loading = true;
+      label = "loading…";
+      temp = "…";
     }
     return (
-      '<div class="wweather">' +
+      '<div class="wweather' + (loading ? " loading" : "") + '">' +
         '<span class="wweather-icon">' + icon + '</span>' +
         '<div>' +
           '<div class="wweather-temp">' + temp + '</div>' +
@@ -4075,7 +4556,15 @@ initPixelPaint();
 
   /* ---- timer ---- */
 
-  var timerLeft = 25 * 60;
+  var timerDurKey = "isaacos_timer_secs";
+  var timerSecs = parseInt(localStorage.getItem(timerDurKey), 10);
+  if (isNaN(timerSecs) || timerSecs < 5) {
+    var legacy = parseInt(localStorage.getItem("isaacos_timer_min"), 10);
+    timerSecs = !isNaN(legacy) && legacy >= 1 ? Math.min(180, legacy) * 60 : 25 * 60;
+    try { localStorage.setItem(timerDurKey, String(timerSecs)); } catch (e) {}
+  }
+  if (timerSecs > 180 * 60) timerSecs = 180 * 60;
+  var timerLeft = timerSecs;
   var timerRunning = false;
   var timerTimer = null;
   var timerTextEl = null, timerRingEl = null;
@@ -4085,7 +4574,7 @@ initPixelPaint();
 
   function timerRender() {
     if (!timerTextEl) return;
-    var frac = timerLeft / (25 * 60);
+    var frac = timerLeft / timerSecs;
     var p = function (n) { return n < 10 ? "0" + n : "" + n; };
     timerTextEl.textContent = p(Math.floor(timerLeft / 60)) + ":" + p(timerLeft % 60);
     timerRingEl.setAttribute("stroke-dashoffset", TIMER_C * (1 - frac));
@@ -4096,6 +4585,7 @@ initPixelPaint();
     if (timerLeft <= 0) {
       timerLeft = 0;
       stopTimer();
+      notifyTimerDone();
     }
     timerRender();
   }
@@ -4103,6 +4593,7 @@ initPixelPaint();
   function startTimer() {
     if (timerRunning) return;
     timerRunning = true;
+    clearWidgetsBadge();
     timerTimer = setInterval(timerTick, 1000);
   }
 
@@ -4113,18 +4604,26 @@ initPixelPaint();
 
   function resetTimer() {
     stopTimer();
-    timerLeft = 25 * 60;
+    timerLeft = timerSecs;
     timerRender();
   }
 
   function buildTimer() {
     return (
       '<div class="wtimer">' +
-        '<svg class="wtimer-ring" viewBox="0 0 100 100">' +
-          '<circle cx="50" cy="50" r="' + TIMER_R + '" fill="none" stroke="#241a14" stroke-width="6"></circle>' +
-          '<circle id="wtimerRing" cx="50" cy="50" r="' + TIMER_R + '" fill="none" stroke="#690e0e" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 50 50)"></circle>' +
-          '<text id="wtimerText" x="50" y="57" text-anchor="middle" font-family="VT323, monospace" font-size="22" fill="#e8d5a8"></text>' +
-        '</svg>' +
+        '<div class="wtimer-wrap">' +
+          '<svg class="wtimer-ring" viewBox="0 0 100 100">' +
+            '<circle cx="50" cy="50" r="' + TIMER_R + '" fill="none" stroke="var(--blood-dark)" stroke-width="6"></circle>' +
+            '<circle id="wtimerRing" cx="50" cy="50" r="' + TIMER_R + '" fill="none" stroke="var(--blood)" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 50 50)"></circle>' +
+          '</svg>' +
+          '<div class="wtimer-center">' +
+            '<span id="wtimerText" class="wtimer-time' + (timerRunning ? "" : " editable") + '" data-waction="timer-edit" title="' + (timerRunning ? "" : "click to set time") + '"></span>' +
+            '<div class="wtimer-dur">' +
+              '<button class="wtimer-btn dur" data-waction="timer-dec"' + (timerRunning ? " disabled" : "") + '>−</button>' +
+              '<button class="wtimer-btn dur" data-waction="timer-inc"' + (timerRunning ? " disabled" : "") + '>+</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
         '<div class="wtimer-btns">' +
           '<button class="wtimer-btn start" data-waction="timer-start">start</button>' +
           '<button class="wtimer-btn reset" data-waction="timer-reset">reset</button>' +
@@ -4164,7 +4663,9 @@ initPixelPaint();
         '<div class="wmom-text">' + momLines[momIdx] +
           '<div class="wmom-sign">— mom says</div>' +
         '</div>' +
-        '<button class="wmom-reroll" data-waction="mom-reroll">⟳</button>' +
+        '<button class="wmom-reroll" data-waction="mom-reroll">' +
+          '<img class="wmom-reroll-icon" src="img/Collectible_The_D6_icon.webp" alt="reroll">' +
+        '</button>' +
       '</div>'
     );
   }
@@ -4211,6 +4712,11 @@ initPixelPaint();
         '<div class="wiod-body">' +
           '<div class="wiod-name">' + item.name + '</div>' +
           '<div class="wiod-quote">"' + (item.quote || "") + '"</div>' +
+          (item.quality != null
+            ? '<div class="wiod-quality">' +
+              (function () { var st = ""; for (var s = 0; s < 4; s++) st += '<span class="comp-star' + (s < item.quality ? " on" : "") + '"></span>'; return st; })() +
+              '</div>'
+            : '') +
           '<div class="wiod-desc">' + (item.description || "") + '</div>' +
         '</div>' +
         '<button class="wiod-reroll' + (used ? " used" : "") + '" data-waction="iod-reroll" title="' + (used ? "reroll used for today" : "reroll (once per day)") + '">' +
@@ -4234,7 +4740,7 @@ initPixelPaint();
 
   function cardHtml(id) {
     var names = { clock: "Clock", weather: "Weather", calendar: "Calendar", todo: "To-do", timer: "Timer", mom: "Mom says", iod: "Item of the day" };
-    var glyphs = { clock: "◷", weather: "☂", calendar: "▦", todo: "✎", timer: "⏱", mom: "✍", iod: "★" };
+    var glyphs = { clock: "◷", weather: "☂", calendar: "▦", todo: "✎", timer: "⏱", mom: "𓂇", iod: "★" };
     return '<div class="widget-card" data-widget="' + id + '">' +
       '<div class="widget-card-head"><span class="widget-card-title">' + names[id] + '</span><span class="wcalendar-title">' + glyphs[id] + '</span></div>' +
       builders[id]() +
@@ -4260,6 +4766,7 @@ initPixelPaint();
     });
     desktop.innerHTML = html;
     syncWidgets();
+    Array.prototype.forEach.call(desktop.querySelectorAll(".widget-card"), placeSaved);
   }
 
   /* ---- events ---- */
@@ -4313,7 +4820,7 @@ initPixelPaint();
       if (!val) return;
       todoItems.push({ t: val, done: false });
       saveTodo();
-      if (card) card.outerHTML = cardHtml("todo");
+      refreshWidget("todo");
       var ni = document.getElementById("wtodoInput");
       if (ni) ni.focus();
       return;
@@ -4323,15 +4830,22 @@ initPixelPaint();
       var ti = parseInt(btn.getAttribute("data-idx"), 10);
       if (!isNaN(ti) && todoItems[ti]) todoItems[ti].done = !todoItems[ti].done;
       saveTodo();
-      if (card) card.outerHTML = cardHtml("todo");
+      refreshWidget("todo");
       return;
     }
 
     if (action === "todo-del") {
       var di = parseInt(btn.getAttribute("data-idx"), 10);
-      if (!isNaN(di)) todoItems.splice(di, 1);
-      saveTodo();
-      if (card) card.outerHTML = cardHtml("todo");
+      if (!isNaN(di) && todoItems[di]) {
+        var removed = todoItems.splice(di, 1)[0];
+        saveTodo();
+        refreshWidget("todo");
+        showToastAction("task removed", "undo", function () {
+          todoItems.splice(Math.min(di, todoItems.length), 0, removed);
+          saveTodo();
+          refreshWidget("todo");
+        });
+      }
       return;
     }
 
@@ -4341,7 +4855,7 @@ initPixelPaint();
         stopTimer();
         btnEl.textContent = "start";
       } else {
-        if (timerLeft <= 0) { timerLeft = 25 * 60; }
+        if (timerLeft <= 0) { timerLeft = timerSecs; }
         startTimer();
         btnEl.textContent = "pause";
       }
@@ -4355,9 +4869,114 @@ initPixelPaint();
       return;
     }
 
+    if (action === "timer-edit") {
+      if (timerRunning || btn.querySelector("input")) return;
+      var tSpan = btn;
+      var committed = false;
+      var minsVal = null;
+
+      function cancelEdit() {
+        committed = true;
+        refreshWidget("timer");
+        syncTimer();
+      }
+
+      function commitEdit(m, s) {
+        if (committed) return;
+        committed = true;
+        timerSecs = Math.max(5, Math.min(180 * 60, m * 60 + s));
+        try { localStorage.setItem(timerDurKey, String(timerSecs)); } catch (e) {}
+        stopTimer();
+        timerLeft = timerSecs;
+        refreshWidget("timer");
+        syncTimer();
+      }
+
+      function digitInput(maxLen, ph) {
+        var inp = document.createElement("input");
+        inp.className = "wtimer-edit";
+        inp.type = "text";
+        inp.inputMode = "numeric";
+        inp.maxLength = maxLen;
+        inp.placeholder = ph;
+        inp.addEventListener("input", function () {
+          inp.value = inp.value.replace(/\D/g, "").slice(0, maxLen);
+        });
+        return inp;
+      }
+
+      function sepSpan(txt) {
+        var sp = document.createElement("span");
+        sp.className = "wtimer-edit-sep";
+        sp.textContent = txt;
+        return sp;
+      }
+
+      function renderStep1() {
+        tSpan.textContent = "";
+        var mi = digitInput(3, "00");
+        tSpan.appendChild(mi);
+        tSpan.appendChild(sepSpan(":"));
+        tSpan.appendChild(sepSpan("00"));
+        mi.focus();
+        mi.addEventListener("keydown", function (ev) {
+          if (ev.key === "Enter") {
+            ev.stopPropagation();
+            if (!mi.value) { cancelEdit(); return; }
+            minsVal = parseInt(mi.value, 10);
+            renderStep2();
+          } else if (ev.key === "Escape") { cancelEdit(); }
+        });
+        mi.addEventListener("blur", function () {
+          setTimeout(function () {
+            if (committed || !tSpan.contains(mi)) return;
+            if (mi.value) commitEdit(parseInt(mi.value, 10), 0);
+            else cancelEdit();
+          }, 0);
+        });
+      }
+
+      function renderStep2() {
+        tSpan.textContent = "";
+        tSpan.appendChild(sepSpan(String(minsVal)));
+        tSpan.appendChild(sepSpan(":"));
+        var si = digitInput(2, "00");
+        tSpan.appendChild(si);
+        si.focus();
+        si.addEventListener("keydown", function (ev) {
+          if (ev.key === "Enter") {
+            ev.stopPropagation();
+            commitEdit(minsVal, si.value ? Math.min(59, parseInt(si.value, 10)) : 0);
+          } else if (ev.key === "Escape") { cancelEdit(); }
+        });
+        si.addEventListener("blur", function () {
+          setTimeout(function () {
+            if (committed || !tSpan.contains(si)) return;
+            commitEdit(minsVal, si.value ? Math.min(59, parseInt(si.value, 10)) : 0);
+          }, 0);
+        });
+      }
+
+      renderStep1();
+      return;
+    }
+
+    if (action === "timer-dec" || action === "timer-inc") {
+      if (timerRunning) return;
+      var ns = Math.max(300, Math.min(180 * 60, timerSecs + (action === "timer-dec" ? -300 : 300)));
+      if (ns === timerSecs) return;
+      timerSecs = ns;
+      try { localStorage.setItem(timerDurKey, String(timerSecs)); } catch (e) {}
+      stopTimer();
+      timerLeft = timerSecs;
+      refreshWidget("timer");
+      syncTimer();
+      return;
+    }
+
     if (action === "mom-reroll") {
       momIdx = (momIdx + 1) % momLines.length;
-      if (card) card.outerHTML = cardHtml("mom");
+      refreshWidget("mom");
       return;
     }
 
@@ -4366,7 +4985,7 @@ initPixelPaint();
       if (iodItems.length && iodToday().override < 0) {
         iodState.override = Math.floor(Math.random() * iodItems.length);
         iodSave();
-        if (card) card.outerHTML = cardHtml("iod");
+        refreshWidget("iod");
       }
       return;
     }
@@ -4379,8 +4998,7 @@ initPixelPaint();
       if (!val) return;
       todoItems.push({ t: val, done: false });
       saveTodo();
-      var card = input.closest(".widget-card");
-      if (card) card.outerHTML = cardHtml("todo");
+      refreshWidget("todo");
       var ni = document.getElementById("wtodoInput");
       if (ni) ni.focus();
     }

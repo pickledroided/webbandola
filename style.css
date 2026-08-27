@@ -124,7 +124,7 @@ button {
 
 .dock-item:hover {
   background: var(--ui-card);
-  transform: translateY(-4px);
+  transform: translateY(-4px) scale(1.08);
   box-shadow: 0 0 0 1px var(--blood), 0 8px 20px rgba(0,0,0,0.4);
 } 
 
@@ -401,8 +401,8 @@ button {
 }
 
 .closebutton {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 3px;
   background: var(--blood);
   border: 1px solid #000;
@@ -423,6 +423,207 @@ button {
   background: #0a0605;
 }
 
+.maxbutton {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 6px;
+  background: var(--ui-card-hover);
+  position: relative;
+}
+
+.maxbutton::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 2px solid #0a0605;
+  border-radius: 1px;
+}
+
+.maxbutton.restore::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 2px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid #0a0605;
+  border-top: none;
+  border-right: none;
+  background: var(--ui-card-hover);
+}
+
+.maxbutton:hover {
+  background: var(--blood);
+}
+
+.wallpaper-add {
+  justify-content: center;
+  align-items: center;
+  min-height: 110px;
+  border: 2px dashed color-mix(in srgb, var(--blood) 55%, transparent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.wallpaper-add:hover {
+  background: var(--ui-card);
+}
+
+.wallpaper-add-plus {
+  font-size: 42px;
+  line-height: 1;
+  color: var(--blood);
+}
+
+.wallpaper-del {
+  position: absolute;
+  top: 12px;
+  right: 12px;  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #e8d5a8;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.wallpaper-card:hover .wallpaper-del,
+.wallpaper-del:hover {
+  opacity: 1;
+}
+
+.wallpaper-del:hover {
+  background: var(--blood);
+}
+
+/* toast */
+#toastStack {
+  position: absolute;
+  right: 16px;
+  bottom: 96px;
+  z-index: 20000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.toast {
+  pointer-events: auto;
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  padding: 6px 14px;
+  border: 1px solid #000;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--blood), 0 6px 16px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast-undo {
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: var(--blood-dark);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+  padding: 1px 10px;
+  cursor: pointer;
+}
+
+.toast-undo:hover {
+  background: var(--blood);
+}
+
+.appicon-badge {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blood);
+  border: 2px solid #000;
+  box-shadow: 0 0 6px var(--blood-hover);
+  animation: badgePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+.compendium-recent {
+  position: absolute;
+  z-index: 5000;
+  background: var(--ui-panel);
+  border: 1px solid #000;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blood) 50%, transparent), 0 10px 24px rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compendium-recent-title {
+  font-family: 'VT323', monospace;
+  font-size: 13px;
+  color: var(--ui-text-dim);
+  padding: 2px 6px 4px;
+}
+
+.compendium-recent-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.compendium-recent-item:hover {
+  background: var(--ui-card-hover);
+}
+
+.window.focused .windowheader {
+  background: color-mix(in srgb, var(--ui-panel) 70%, var(--blood) 30%);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* weather loading */
+.wweather.loading .wweather-temp {
+  animation: wweatherPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes wweatherPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .closebutton::before {
   transform: translate(-50%, -50%) rotate(45deg);
 }
@@ -441,8 +642,8 @@ button {
 }
 
 .minbutton {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 3px;
   background: var(--ui-card);
   border: 1px solid #000;
@@ -1852,6 +2053,53 @@ button {
   cursor: pointer;
 }
 
+button.compendium-boss-item {
+  background: none;
+  border: none;
+  font: inherit;
+  padding: 0;
+  text-align: right;
+}
+
+.compendium-link-menu {
+  position: absolute;
+  z-index: 6000;
+  background: var(--ui-panel);
+  border: 1px solid #000;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blood) 55%, transparent), 0 10px 24px rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  transform: scale(0.92) translateY(-4px);
+  transform-origin: top left;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.compendium-link-menu.open {
+  opacity: 1;
+  transform: none;
+}
+
+.compendium-link-menu button {
+  background: transparent;
+  border: none;
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  text-align: left;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.compendium-link-menu button:hover {
+  background: var(--blood);
+}
+
 .compendium-boss-item {
   justify-content: flex-end;
 }
@@ -2619,6 +2867,7 @@ button {
 }
 
 .wallpaper-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2626,8 +2875,7 @@ button {
   background: var(--ui-card);
   border: 1px solid #000;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--blood) 30%, transparent);
-  border-radius: 10px;
-  cursor: pointer;
+  border-radius: 10px;  cursor: pointer;
   transition: box-shadow 0.15s;
 }
 
@@ -3849,16 +4097,101 @@ button {
   padding: 6px 0;
 }
 
-.wtimer-ring {
-  width: 96px;
-  height: 96px;
+.wtimer-wrap {
+  position: relative;
+  width: 104px;
+  height: 104px;
   flex: none;
+}
+
+.wtimer-ring {
+  width: 100%;
+  height: 100%;
+}
+
+.wtimer-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.wtimer-time {
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ui-text);
+}
+
+.wtimer-time.editable {
+  cursor: pointer;
+  border-bottom: 1px dashed color-mix(in srgb, var(--blood) 60%, transparent);
+}
+
+.wtimer-time.editable:hover {
+  color: var(--blood-hover);
+}
+
+.wtimer-edit {
+  width: 40px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--blood);
+  color: var(--ui-text);
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  text-align: center;
+  outline: none;
+  padding: 0;
+}
+
+.wtimer-edit::placeholder {
+  color: color-mix(in srgb, var(--ui-text) 35%, transparent);
+}
+
+.wtimer-edit-sep {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ui-text);
 }
 
 .wtimer-btns {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.wtimer-dur {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.wtimer-btn.dur {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ui-card-hover);
+}
+
+.wtimer-btn.dur:hover {
+  background: var(--blood);
+}
+
+.wtimer-btn.dur:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .wtimer-btn {
@@ -3926,12 +4259,30 @@ button {
   color: var(--ui-text);
   font-family: 'VT323', monospace;
   font-size: 16px;
-  padding: 2px 12px;
+  padding: 3px;
   cursor: pointer;
+  flex: none;
+  line-height: 0;
+}
+
+.wmom-reroll-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
 }
 
 .wmom-reroll:hover {
   background: color-mix(in srgb, var(--blood) 40%, #000);
+}
+
+.wmom-reroll.used {
+  cursor: not-allowed;
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.wmom-reroll.used:hover {
+  background: var(--ui-card-hover);
 }
 
 /* item of the day */
@@ -3973,6 +4324,12 @@ button {
   font-size: 17px;
   color: var(--blood);
   margin-top: 2px;
+}
+
+.wiod-quality {
+  display: flex;
+  gap: 3px;
+  margin-top: 5px;
 }
 
 .wiod-desc {
@@ -4032,6 +4389,11 @@ button {
   max-height: calc(100% - 120px);
   padding-right: 2px;
   pointer-events: none;
+}
+
+#desktopWidgets .widget-card-head {
+  cursor: grab;
+  user-select: none;
 }
 
 #desktopWidgets .widget-card {
