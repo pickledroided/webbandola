@@ -805,13 +805,17 @@ function browserResolve(input) {
 function browserGo(url) {
   if (!url) return;
 
+  var srcUrl = url;
+  if (url.indexOf("pickledroided.github.io/webbandola") !== -1) {
+    srcUrl = url + (url.indexOf("?") !== -1 ? "&" : "?") + "_=" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+  }
   var isSame = url === browserCurrentUrl && browserFrame.src;
   if (isSame) {
     try { browserFrame.contentWindow.location.reload(); } catch (e) {
-      browserFrame.src = url + (url.indexOf("?") !== -1 ? "&" : "?") + "_=" + Date.now();
+      browserFrame.src = srcUrl;
     }
   } else {
-    browserFrame.src = url;
+    browserFrame.src = srcUrl;
   }
   browserCurrentUrl = url;
   browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
