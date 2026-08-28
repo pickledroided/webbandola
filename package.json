@@ -1,0 +1,13 @@
+{
+  "name": "webbandola",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Webbandola / IsaacOS — static webOS; Playwright smoke tests",
+  "scripts": {
+    "test": "playwright test",
+    "test:server": "node tests/server.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

@@ -19,6 +19,9 @@ var osBaseW = 1280;
 var osBaseH = 720;
 
 function initOsBase() {
+  // The desktop is a fixed 1280x720 design canvas that fitOsToScreen() scales to fit the
+  // window. A saved base is honoured but never adopted from the live window size (that
+  // used to bake the window size in and break scaling). The default stays 1280x720.
   try {
     var saved = localStorage.getItem(osBaseKey);
     if (saved) {
@@ -27,10 +30,6 @@ function initOsBase() {
         osBaseW = parseFloat(parts[0]);
         osBaseH = parseFloat(parts[1]);
       }
-    } else {
-      osBaseW = window.innerWidth;
-      osBaseH = window.innerHeight;
-      localStorage.setItem(osBaseKey, osBaseW + "x" + osBaseH);
     }
   } catch (e) {}
   if (osContainer) {
@@ -39,29 +38,59 @@ function initOsBase() {
   }
 }
 
+var osScale = 1;
+
 function fitOsToScreen() {
   if (!osContainer) return;
   if (window.self !== window.top) {
+    // Inside an iframe: just fill the parent.
     osContainer.style.transform = "none";
     osContainer.style.width = "100%";
     osContainer.style.height = "100%";
     osContainer.style.left = "0px";
     osContainer.style.top = "0px";
+    osScale = 1;
     return;
   }
 
-  var scaleX = window.innerWidth / osBaseW;
-  var scaleY = window.innerHeight / osBaseH;
+  // Scale the desktop with a SINGLE uniform factor (no distortion of icons/text/apps), but
+  // make the stage's logical width elastic so it exactly fills the viewport after scaling.
+  // Fix the design height at the original 720px so the vertical layout (topbar flush at top,
+  // bottom apps visible) is preserved exactly. The uniform scale is derived from height:
+  //   s = innerHeight / 720
+  // and the logical width is set to innerWidth / s. After scaling, the rendered stage is
+  // exactly innerWidth x innerHeight — so it fills the screen with no stretch, and the
+  // topbar (width:100%) and wallpaper span the full right edge too.
+  var scale = window.innerHeight / osBaseH;
+  osScale = scale;
 
-  osContainer.style.transform = "scale(" + scaleX + ", " + scaleY + ")";
+  var logicalW = window.innerWidth / scale;
+  osContainer.style.transform = "scale(" + scale + ")";
+  osContainer.style.width = logicalW + "px";
+  osContainer.style.height = osBaseH + "px";
   osContainer.style.left = "0px";
   osContainer.style.top = "0px";
 }
 
 function getOsScale() {
-  if (!osContainer) return 1;
-  var match = osContainer.style.transform.match(/scale\(([\d.]+)\)/);
-  return match ? parseFloat(match[1]) : 1;
+  // The desktop uses a non-uniform transform (scaleX, scaleY) to fill the window.
+  // Most callers need the rendered size; report the average so size/relative math
+  // stays roughly correct. For axis-specific math (dragging) use getOsScaleXY().
+  return osScale;
+}
+
+// Live per-axis scale. The desktop uses a single uniform scale (no distortion), with an
+// elastic logical width so the stage fills the viewport. Both axes share the same scale,
+// but we derive X from the element's actual logical width (offsetWidth) and Y from the
+// design height, so drag/resize math stays pixel-accurate at any window aspect ratio.
+function getOsScaleXY() {
+  if (!osContainer) return { x: 1, y: 1 };
+  var logicalW = osContainer.offsetWidth || osBaseW;
+  var r = osContainer.getBoundingClientRect();
+  return {
+    x: logicalW > 0 ? r.width / logicalW : 1,
+    y: osBaseH > 0 ? r.height / osBaseH : 1
+  };
 }
 
 window.addEventListener("resize", fitOsToScreen);
@@ -161,18 +190,19 @@ function initializeWindow(id) {
 function setupResize(element) {
   var handle = document.createElement("div");
   handle.className = "resize-handle";
+  handle.style.touchAction = "none";
   element.appendChild(handle);
 
-  handle.addEventListener("mousedown", function (e) {
+  handle.addEventListener("pointerdown", function (e) {
     e = e || window.event;
     e.preventDefault();
     e.stopPropagation();
 
-    var s = getOsScale();
+    var s = getOsScaleXY();
     var osRect = osContainer.getBoundingClientRect();
     var rect = element.getBoundingClientRect();
-    var vx = (rect.left - osRect.left) / s;
-    var vy = (rect.top - osRect.top) / s;
+    var vx = (rect.left - osRect.left) / s.x;
+    var vy = (rect.top - osRect.top) / s.y;
     var startW = element.offsetWidth;
     var startH = element.offsetHeight;
     var startX = e.clientX;
@@ -181,8 +211,8 @@ function setupResize(element) {
     function doResize(ev) {
       ev = ev || window.event;
       ev.preventDefault();
-      var newW = Math.max(240, startW + (ev.clientX - startX) / s);
-      var newH = Math.max(140, startH + (ev.clientY - startY) / s);
+      var newW = Math.max(240, startW + (ev.clientX - startX) / s.x);
+      var newH = Math.max(140, startH + (ev.clientY - startY) / s.y);
       element.style.width = newW + "px";
       element.style.height = newH + "px";
       element.style.left = (vx + newW / 2) + "px";
@@ -190,12 +220,14 @@ function setupResize(element) {
     }
 
     function stopResize() {
-      document.onmousemove = null;
-      document.onmouseup = null;
+      document.removeEventListener("pointermove", doResize);
+      document.removeEventListener("pointerup", stopResize);
+      document.removeEventListener("pointercancel", stopResize);
     }
 
-    document.onmousemove = doResize;
-    document.onmouseup = stopResize;
+    document.addEventListener("pointermove", doResize);
+    document.addEventListener("pointerup", stopResize);
+    document.addEventListener("pointercancel", stopResize);
   });
 }
 
@@ -237,8 +269,8 @@ function minWindow(element) {
   var dock = document.querySelector("#dock");
   var dockRect = dock.getBoundingClientRect();
   var elRect = element.getBoundingClientRect();
-  var scale = getOsScale();
-  var dy = ((dockRect.top + dockRect.height / 2) - (elRect.top + elRect.height / 2)) / scale;
+  var scale = getOsScaleXY();
+  var dy = ((dockRect.top + dockRect.height / 2) - (elRect.top + elRect.height / 2)) / scale.y;
 
   element.style.setProperty("--genie-dy", dy + "px");
   element.classList.add("genie-out");
@@ -311,31 +343,34 @@ function dragElement(element) {
   var currentX = 0;
   var currentY = 0;
 
-  if (document.getElementById(element.id + "header")) {
-    document.getElementById(element.id + "header").onmousedown = startDragging;
-  } else {
-    element.onmousedown = startDragging;
-  }
+  var header = document.getElementById(element.id + "header");
+  var dragTarget = header || element;
+  dragTarget.style.touchAction = "none";
+
+  dragTarget.addEventListener("pointerdown", startDragging);
 
   function startDragging(e) {
+    // Don't start a drag from the window-management buttons (min/max/close).
+    if (e.target.closest(".minbutton,.closebutton,.maxbutton")) return;
     e = e || window.event;
     e.preventDefault();
     initialX = e.clientX;
     initialY = e.clientY;
-    document.onmouseup = stopDragging;
-    document.onmousemove = elementDrag;
+    document.addEventListener("pointerup", stopDragging);
+    document.addEventListener("pointercancel", stopDragging);
+    document.addEventListener("pointermove", elementDrag);
   }
 
   function currentScale() {
-    return getOsScale();
+    return getOsScaleXY();
   }
 
   function elementDrag(e) {
     e = e || window.event;
     e.preventDefault();
     var s = currentScale();
-    currentX = (initialX - e.clientX) / s;
-    currentY = (initialY - e.clientY) / s;
+    currentX = (initialX - e.clientX) / s.x;
+    currentY = (initialY - e.clientY) / s.y;
     initialX = e.clientX;
     initialY = e.clientY;
     element.style.top = (element.offsetTop - currentY) + "px";
@@ -343,8 +378,9 @@ function dragElement(element) {
   }
 
   function stopDragging() {
-    document.onmouseup = null;
-    document.onmousemove = null;
+    document.removeEventListener("pointermove", elementDrag);
+    document.removeEventListener("pointerup", stopDragging);
+    document.removeEventListener("pointercancel", stopDragging);
   }
 }
 
@@ -413,8 +449,35 @@ function clearWidgetsBadge() {
   if (b) b.remove();
 }
 
+function playTimerSound() {
+  try {
+    if (localStorage.getItem("isaacos_settings_muted") === "1") return;
+    var volEl = document.querySelector("#settingsVolume");
+    var vol = volEl ? parseInt(volEl.value, 10) / 100 : 0.5;
+    if (vol === 0 || isNaN(vol)) vol = 0.5;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx = new AC();
+    if (ctx.state === "suspended") ctx.resume();
+    function tone(freq, delay, dur) {
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.frequency.value = freq;
+      g.gain.value = vol * 0.5;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + dur);
+      o.stop(ctx.currentTime + delay + dur);
+    }
+    tone(880, 0, 0.22);
+    tone(880, 0.28, 0.22);
+    tone(880, 0.56, 0.45);
+  } catch (e) {}
+}
+
 function notifyTimerDone() {
   showToast("time's up!");
+  playTimerSound();
   var icon = document.getElementById("widgetsicon");
   if (!icon || icon.querySelector(".appicon-badge")) return;
   var b = document.createElement("span");
@@ -488,14 +551,16 @@ function makeIconDraggable(icon) {
   var offsetX = 0;
   var offsetY = 0;
 
-  icon.addEventListener("mousedown", function (e) {
+  icon.style.touchAction = "none";
+
+  icon.addEventListener("pointerdown", function (e) {
     e = e || window.event;
     e.preventDefault();
     var parent = icon.offsetParent || osContainer;
     var parentRect = parent.getBoundingClientRect();
-    var s = getOsScale();
-    var localX = (e.clientX - parentRect.left) / s;
-    var localY = (e.clientY - parentRect.top) / s;
+    var s = getOsScaleXY();
+    var localX = (e.clientX - parentRect.left) / s.x;
+    var localY = (e.clientY - parentRect.top) / s.y;
     startX = e.clientX;
     startY = e.clientY;
     offsetX = localX - icon.offsetLeft;
@@ -503,28 +568,33 @@ function makeIconDraggable(icon) {
     dragging = true;
     moved = false;
 
-    document.onmousemove = function (ev) {
+    function onMove(ev) {
       if (!dragging) return;
       ev = ev || window.event;
       ev.preventDefault();
-      var x = ((ev.clientX - parentRect.left) / s) - offsetX;
-      var y = ((ev.clientY - parentRect.top) / s) - offsetY;
+      var x = ((ev.clientX - parentRect.left) / s.x) - offsetX;
+      var y = ((ev.clientY - parentRect.top) / s.y) - offsetY;
       if (Math.abs(ev.clientX - startX) > 3 || Math.abs(ev.clientY - startY) > 3) {
         moved = true;
       }
       icon.style.left = Math.max(0, x) + "px";
       icon.style.top = Math.max(0, y) + "px";
-    };
+    }
 
-    document.onmouseup = function () {
+    function onUp() {
       dragging = false;
-      document.onmousemove = null;
-      document.onmouseup = null;
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
       if (moved) {
         icon._dragged = true;
         saveIconPositions();
       }
-    };
+    }
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
   });
 }
 
@@ -561,9 +631,19 @@ loadIconPositions();
 
 (function resetStaleIconPositions() {
   try {
-    if (!localStorage.getItem("isaacos_icon_positions_v2")) {
+    // v3: the desktop is now a fluid full-window layout (icons pinned to left/right
+    // edges via CSS). Saved positions from the old fixed-canvas layout used inline
+    // `left`/`top` that would override the new `right` anchoring, so clear them once.
+    if (!localStorage.getItem("isaacos_icon_positions_v3")) {
       localStorage.removeItem(iconPositionsKey);
-      localStorage.setItem("isaacos_icon_positions_v2", "1");
+      // Also strip any inline positions already applied to the DOM this load, otherwise
+      // a stale `left` would linger until the next reload (CSS `right` only wins once the
+      // inline style is gone).
+      document.querySelectorAll(".appicon").forEach(function (icon) {
+        icon.style.left = "";
+        icon.style.top = "";
+      });
+      localStorage.setItem("isaacos_icon_positions_v3", "1");
     }
   } catch (e) {}
 })();
@@ -1459,11 +1539,11 @@ function compShowLinkMenu(anchor, itemName) {
   b2.addEventListener("click", function () { compCloseLinkMenu(); window.open(compItemWiki(itemName), "_blank", "noopener"); });
   compLinkMenu.appendChild(b2);
   os.appendChild(compLinkMenu);
-  var s = getOsScale();
+  var s = getOsScaleXY();
   var or = os.getBoundingClientRect();
   var r = anchor.getBoundingClientRect();
-  compLinkMenu.style.left = ((r.left - or.left) / s) + "px";
-  compLinkMenu.style.top = ((r.bottom - or.top) / s + 4) + "px";
+  compLinkMenu.style.left = ((r.left - or.left) / s.x) + "px";
+  compLinkMenu.style.top = ((r.bottom - or.top) / s.y + 4) + "px";
   requestAnimationFrame(function () { if (compLinkMenu) compLinkMenu.classList.add("open"); });
   setTimeout(function () {
     document.addEventListener("mousedown", function menuOutside(e) {
@@ -1530,7 +1610,7 @@ function compRenderDetail() {
       photo +
       (item.location ? '<div class="compendium-unlock"><h4 class="compendium-unlock-title">How to reach</h4>' +
         '<p class="compendium-unlock-text">' + compEsc(item.location) + '</p></div>' : '') +
-      (killRows ? '<div class="compendium-unlock"><h4 class="compendium-unlock-title">Class unlocks</h4>' +
+      (killRows ? '<div class="compendium-unlock"><h4 class="compendium-unlock-title">Unlocks</h4>' +
         '<div class="compendium-boss-list">' + killRows + '</div></div>' : '') +
       '<a class="compendium-detail-link" href="' + compEsc(item.wiki) + '" target="_blank" rel="noopener">Open in wiki.gg \u2192</a>';
     return;
@@ -1838,12 +1918,12 @@ function recentSearchShow() {
   });
   var osEl2 = document.getElementById("os");
   osEl2.appendChild(recentSearchBox);
-  var s = getOsScale();
+  var s = getOsScaleXY();
   var or = osEl2.getBoundingClientRect();
   var r = compSearch.getBoundingClientRect();
-  recentSearchBox.style.left = ((r.left - or.left) / s) + "px";
-  recentSearchBox.style.top = ((r.bottom - or.top) / s + 4) + "px";
-  recentSearchBox.style.width = (r.width / s) + "px";
+  recentSearchBox.style.left = ((r.left - or.left) / s.x) + "px";
+  recentSearchBox.style.top = ((r.bottom - or.top) / s.y + 4) + "px";
+  recentSearchBox.style.width = (r.width / s.x) + "px";
 }
 
 if (compSearch) {
@@ -3398,9 +3478,9 @@ function initPixelPaint() {
   function fitCanvasWrapper() {
     if (!container || !wrapper) return;
     var rect = container.getBoundingClientRect();
-    var s = getOsScale();
-    var availW = (rect.width / s) - 24;
-    var availH = (rect.height / s) - 24;
+    var s = getOsScaleXY();
+    var availW = (rect.width / s.x) - 24;
+    var availH = (rect.height / s.y) - 24;
     var maxInner = Math.min(availW, availH, 436);
     var cell = Math.max(1, Math.floor(maxInner / state.gridSize));
     var inner = cell * state.gridSize;
@@ -3421,16 +3501,19 @@ function initPixelPaint() {
     gridToggleBtn.textContent = "\u25a6 Grid: ON";
 
     var cell = wrapper.clientWidth / state.gridSize;
-    var k = Math.max(4, Math.round(cell * getOsScale()));
-    gridCanvas.width = state.gridSize * k;
-    gridCanvas.height = state.gridSize * k;
+    var k = getOsScaleXY();
+    gridCanvas.width = Math.max(4, Math.round(state.gridSize * cell * k.x));
+    gridCanvas.height = Math.max(4, Math.round(state.gridSize * cell * k.y));
+    var gkx = gridCanvas.width / state.gridSize;
+    var gky = gridCanvas.height / state.gridSize;
     var g = gridCanvas.getContext("2d");
     g.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
     g.fillStyle = "rgba(0,0,0,0.18)";
     for (var i = 0; i < state.gridSize; i++) {
-      var p = i * k;
-      g.fillRect(p, 0, 1, gridCanvas.height);
-      g.fillRect(0, p, gridCanvas.width, 1);
+      var px = Math.round((i + 1) * gkx);
+      var py = Math.round((i + 1) * gky);
+      g.fillRect(px, 0, 1, gridCanvas.height);
+      g.fillRect(0, py, gridCanvas.width, 1);
     }
   }
 
@@ -4327,17 +4410,17 @@ initPixelPaint();
     if (card.closest(".window")) return;
     e.preventDefault();
     var id = card.getAttribute("data-widget");
-    var s0 = getOsScale();
+    var s0 = getOsScaleXY();
     var osRect0 = osEl.getBoundingClientRect();
     var r0 = card.getBoundingClientRect();
-    var offX = (e.clientX - osRect0.left) / s0 - (r0.left - osRect0.left) / s0;
-    var offY = (e.clientY - osRect0.top) / s0 - (r0.top - osRect0.top) / s0;
+    var offX = (e.clientX - osRect0.left) / s0.x - (r0.left - osRect0.left) / s0.x;
+    var offY = (e.clientY - osRect0.top) / s0.y - (r0.top - osRect0.top) / s0.y;
 
     function onMove(ev) {
-      var sc = getOsScale();
+      var sc = getOsScaleXY();
       var or = osEl.getBoundingClientRect();
-      var x = (ev.clientX - or.left) / sc - offX;
-      var y = (ev.clientY - or.top) / sc - offY;
+      var x = (ev.clientX - or.left) / sc.x - offX;
+      var y = (ev.clientY - or.top) / sc.y - offY;
       x = Math.max(0, Math.min(x, osEl.clientWidth - card.offsetWidth));
       y = Math.max(44, Math.min(y, osEl.clientHeight - card.offsetHeight));
       card.style.position = "fixed";
@@ -4481,7 +4564,10 @@ initPixelPaint();
       weatherState.code = d.current.weather_code;
       weatherState.isDay = d.current.is_day === 1;
       weatherCardRefresh();
-    }).catch(function () {});
+    }).catch(function () {
+      var wl = document.querySelector('#desktopWidgets .widget-card[data-widget="weather"] .wweather-label');
+      if (wl) wl.textContent = "offline";
+    });
   }
 
   function weatherGeocode(q) {
@@ -4490,6 +4576,8 @@ initPixelPaint();
       if (!d || !d.results || !d.results.length) return null;
       var r = d.results[0];
       return { name: r.name + (r.country ? ", " + r.country : ""), lat: r.latitude, lon: r.longitude };
+    }).catch(function () {
+      return null;
     });
   }
 
@@ -4509,6 +4597,10 @@ initPixelPaint();
       weatherCardRefresh();
       weatherFetch();
       showToast("weather: " + loc.name);
+    }).catch(function () {
+      showToast("weather: offline");
+      var wl = document.querySelector('#desktopWidgets .widget-card[data-widget="weather"] .wweather-label');
+      if (wl) wl.textContent = "offline";
     });
   }
 
