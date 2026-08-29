@@ -40,6 +40,20 @@ function initOsBase() {
 
 var osScale = 1;
 
+// Display fit mode: how the desktop stage is scaled to the window.
+//   "fill"    — elastic single scale (no stretch) that exactly fills the window, no blank edges.
+//   "uniform" — fixed 1280x720 canvas, single uniform scale, centered, wallpaper on the edges.
+//   "fit"     — like uniform but never upscaled past the native 1280x720 size.
+var displayModeKey = "isaacos_display_mode";
+
+function getDisplayMode() {
+  try {
+    var m = localStorage.getItem(displayModeKey);
+    if (m === "fill" || m === "uniform" || m === "fit") return m;
+  } catch (e) {}
+  return "fill";
+}
+
 function fitOsToScreen() {
   if (!osContainer) return;
   if (window.self !== window.top) {
@@ -53,23 +67,39 @@ function fitOsToScreen() {
     return;
   }
 
-  // Scale the desktop with a SINGLE uniform factor (no distortion of icons/text/apps), but
-  // make the stage's logical width elastic so it exactly fills the viewport after scaling.
-  // Fix the design height at the original 720px so the vertical layout (topbar flush at top,
-  // bottom apps visible) is preserved exactly. The uniform scale is derived from height:
-  //   s = innerHeight / 720
-  // and the logical width is set to innerWidth / s. After scaling, the rendered stage is
-  // exactly innerWidth x innerHeight — so it fills the screen with no stretch, and the
-  // topbar (width:100%) and wallpaper span the full right edge too.
-  var scale = window.innerHeight / osBaseH;
-  osScale = scale;
+  var mode = getDisplayMode();
 
-  var logicalW = window.innerWidth / scale;
-  osContainer.style.transform = "scale(" + scale + ")";
-  osContainer.style.width = logicalW + "px";
-  osContainer.style.height = osBaseH + "px";
-  osContainer.style.left = "0px";
-  osContainer.style.top = "0px";
+  if (mode === "fill") {
+    // Scale the desktop with a SINGLE uniform factor (no distortion of icons/text/apps), but
+    // make the stage's logical width elastic so it exactly fills the viewport after scaling.
+    // Fix the design height at the original 720px so the vertical layout (topbar flush at top,
+    // bottom apps visible) is preserved exactly. The uniform scale is derived from height:
+    //   s = innerHeight / 720
+    // and the logical width is set to innerWidth / s. After scaling, the rendered stage is
+    // exactly innerWidth x innerHeight — so it fills the screen with no stretch, and the
+    // topbar (width:100%) and wallpaper span the full right edge too.
+    var scale = window.innerHeight / osBaseH;
+    osScale = scale;
+
+    var logicalW = window.innerWidth / scale;
+    osContainer.style.transform = "scale(" + scale + ")";
+    osContainer.style.width = logicalW + "px";
+    osContainer.style.height = osBaseH + "px";
+    osContainer.style.left = "0px";
+    osContainer.style.top = "0px";
+  } else {
+    // uniform / fit: keep the fixed 1280x720 design canvas, scale it uniformly, and center it
+    // in the window. The body wallpaper shows behind/around the stage (no blank/white gap).
+    var cap = mode === "fit" ? 1 : Infinity;
+    var s = Math.min(window.innerWidth / osBaseW, window.innerHeight / osBaseH, cap);
+    osScale = s;
+
+    osContainer.style.transform = "scale(" + s + ")";
+    osContainer.style.width = osBaseW + "px";
+    osContainer.style.height = osBaseH + "px";
+    osContainer.style.left = Math.max(0, (window.innerWidth - osBaseW * s) / 2) + "px";
+    osContainer.style.top = Math.max(0, (window.innerHeight - osBaseH * s) / 2) + "px";
+  }
 }
 
 function getOsScale() {
@@ -246,6 +276,7 @@ function openWindow(element) {
   });
   element.classList.add("focused");
   openApps[element.id] = "open";
+  if (element.id === "settings") settingsApplyDisplayMode();
   renderDock();
   element.classList.remove("opening");
   void element.offsetWidth;
@@ -340,6 +371,8 @@ function renderDock(){
 function dragElement(element) {
   var initialX = 0;
   var initialY = 0;
+  var lastClientX = 0;
+  var lastClientY = 0;
   var currentX = 0;
   var currentY = 0;
 
@@ -356,6 +389,8 @@ function dragElement(element) {
     e.preventDefault();
     initialX = e.clientX;
     initialY = e.clientY;
+    lastClientX = e.clientX;
+    lastClientY = e.clientY;
     document.addEventListener("pointerup", stopDragging);
     document.addEventListener("pointercancel", stopDragging);
     document.addEventListener("pointermove", elementDrag);
@@ -373,6 +408,8 @@ function dragElement(element) {
     currentY = (initialY - e.clientY) / s.y;
     initialX = e.clientX;
     initialY = e.clientY;
+    lastClientX = e.clientX;
+    lastClientY = e.clientY;
     element.style.top = (element.offsetTop - currentY) + "px";
     element.style.left = (element.offsetLeft - currentX) + "px";
   }
@@ -381,34 +418,239 @@ function dragElement(element) {
     document.removeEventListener("pointermove", elementDrag);
     document.removeEventListener("pointerup", stopDragging);
     document.removeEventListener("pointercancel", stopDragging);
+    var movedX = Math.abs(initialX - lastClientX);
+    var movedY = Math.abs(initialY - lastClientY);
+    if (movedX > 4 || movedY > 4) snapToEdges(element);
   }
 }
+
+// Bring a window to the front (raise its z-index and mark it focused).
+function bringToFront(win) {
+  if (!win) return;
+  biggestIndex++;
+  win.style.zIndex = biggestIndex;
+  if (topBar) topBar.style.zIndex = biggestIndex + 1;
+  Array.prototype.forEach.call(document.querySelectorAll(".window.focused"), function (w) {
+    if (w !== win) w.classList.remove("focused");
+  });
+  win.classList.add("focused");
+}
+
+// Snap a dragged window to a screen edge: left/right half, or top = maximize.
+function snapToEdges(win) {
+  if (!osContainer) return;
+  var osc = osContainer.getBoundingClientRect();
+  var s = getOsScaleXY();
+  var logicalW = osc.width / s.x;
+  var logicalH = osc.height / s.y;
+  var w = win.offsetWidth, h = win.offsetHeight;
+  var left = win.offsetLeft, top = win.offsetTop;
+  var threshold = Math.max(20, logicalW * 0.05);
+
+  var snapped = false;
+  if (top <= threshold) {
+    // Top edge -> maximize (reuse toggleMaximize if present, else manual).
+    var tb = document.getElementById("top");
+    var tbH = tb ? tb.offsetHeight : 0;
+    win.style.left = "0px";
+    win.style.top = tbH + "px";
+    win.style.width = logicalW + "px";
+    win.style.height = (logicalH - tbH) + "px";
+    win.style.transform = "none";
+    snapped = true;
+  } else if (left <= threshold) {
+    win.style.left = "0px";
+    win.style.top = "0px";
+    win.style.width = (logicalW / 2) + "px";
+    win.style.height = logicalH + "px";
+    snapped = true;
+  } else if (left + w >= logicalW - threshold) {
+    win.style.left = (logicalW / 2) + "px";
+    win.style.top = "0px";
+    win.style.width = (logicalW / 2) + "px";
+    win.style.height = logicalH + "px";
+    snapped = true;
+  }
+  if (snapped) bringToFront(win);
+}
+
+// Focus a window (raise + mark focused) when it is clicked anywhere.
+document.addEventListener("pointerdown", function (e) {
+  var win = e.target.closest ? e.target.closest(".window") : null;
+  if (!win) return;
+  if (win.style.display === "none" || win.classList.contains("closing")) return;
+  bringToFront(win);
+});
 
 var selectedIcon = undefined;
 
-/* ---- toast feedback ---- */
+/* ---- notifications ---- */
 
 var toastStack = null;
 var toastTimer = null;
+var notifHistory = [];
+var notifKey = "isaacos_notifications";
+var notifBell = null;
+var notifCenter = null;
+var notifBadge = null;
+var unreadCount = 0;
+var notifInitDone = false;
 
-function showToast(msg) {
-  var os = document.getElementById("os");
-  if (!os) return;
-  if (!toastStack) {
-    toastStack = document.createElement("div");
-    toastStack.id = "toastStack";
-    os.appendChild(toastStack);
-  }
-  var t = document.createElement("div");
-  t.className = "toast";
-  t.textContent = msg;
-  toastStack.appendChild(t);
-  requestAnimationFrame(function () { t.classList.add("show"); });
-  setTimeout(function () {
-    t.classList.remove("show");
-    setTimeout(function () { t.remove(); }, 300);
-  }, 2200);
+function loadNotifHistory() {
+  try {
+    var raw = localStorage.getItem(notifKey);
+    if (raw) notifHistory = JSON.parse(raw) || [];
+  } catch (e) { notifHistory = []; }
+  notifHistory.forEach(function (n) { if (!n.read) unreadCount++; });
 }
+
+function saveNotifHistory() {
+  try {
+    // Strip non-serializable fields (onAction) before persisting.
+    var clean = notifHistory.slice(0, 50).map(function (n) {
+      return { ts: n.ts, body: n.body, actionLabel: n.actionLabel || null, read: !!n.read };
+    });
+    localStorage.setItem(notifKey, JSON.stringify(clean));
+  } catch (e) {}
+}
+
+function notifTime(ts) {
+  var d = new Date(ts);
+  var p = function (n) { return n < 10 ? "0" + n : "" + n; };
+  return p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+function updateNotifBadge() {
+  if (!notifBadge) return;
+  if (unreadCount > 0) {
+    notifBadge.style.display = "";
+    notifBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+    // Bump the bell when a new notification arrives (skip during initial load).
+    if (notifBell && !notifInitDone) {
+      notifBell.classList.remove("bump");
+      void notifBell.offsetWidth; // restart the animation
+      notifBell.classList.add("bump");
+    }
+  } else {
+    notifBadge.style.display = "none";
+  }
+}
+
+function renderNotifCenter() {
+  if (!notifCenter) return;
+  notifCenter.innerHTML = "";
+  if (!notifHistory.length) {
+    var empty = document.createElement("div");
+    empty.className = "notif-empty";
+    empty.textContent = "No notifications";
+    notifCenter.appendChild(empty);
+    return;
+  }
+  notifHistory.forEach(function (n, i) {
+    var row = document.createElement("div");
+    row.className = "notif-row" + (n.read ? "" : " unread");
+    row.innerHTML =
+      '<div class="notif-meta"><span class="notif-time"></span></div>' +
+      '<div class="notif-body"></div>';
+    row.querySelector(".notif-time").textContent = notifTime(n.ts);
+    row.querySelector(".notif-body").textContent = n.body;
+    if (n.actionLabel) {
+      var b = document.createElement("button");
+      b.className = "notif-action";
+      b.textContent = n.actionLabel;
+      b.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (typeof n.onAction === "function") n.onAction();
+        dismissNotif(i);
+      });
+      row.appendChild(b);
+    }
+    var x = document.createElement("button");
+    x.className = "notif-dismiss";
+    x.textContent = "×";
+    x.title = "Dismiss";
+    x.addEventListener("click", function (ev) { ev.stopPropagation(); dismissNotif(i); });
+    row.appendChild(x);
+    notifCenter.appendChild(row);
+  });
+  var clear = document.createElement("button");
+  clear.className = "notif-clear";
+  clear.textContent = "Clear all";
+  clear.addEventListener("click", clearNotifHistory);
+  notifCenter.appendChild(clear);
+}
+
+function dismissNotif(i) {
+  notifHistory.splice(i, 1);
+  saveNotifHistory();
+  renderNotifCenter();
+  updateNotifBadge();
+}
+
+function clearNotifHistory() {
+  notifHistory = [];
+  unreadCount = 0;
+  saveNotifHistory();
+  renderNotifCenter();
+  updateNotifBadge();
+}
+
+function markAllRead() {
+  notifHistory.forEach(function (n) { n.read = true; });
+  unreadCount = 0;
+  saveNotifHistory();
+  updateNotifBadge();
+}
+
+function dismissTray(t) {
+  if (!t || !t.parentNode) return;
+  t.classList.remove("show");
+  setTimeout(function () { if (t.parentNode) t.remove(); }, 300);
+}
+
+// Core entry point. All toast helpers route through here.
+function pushNotification(opts) {
+  opts = opts || {};
+  var msg = opts.body || opts.msg || "";
+  var body = String(msg);
+
+  // 1) Live stacked tray toast.
+  var os = document.getElementById("os");
+  if (os) {
+    if (!toastStack) {
+      toastStack = document.createElement("div");
+      toastStack.id = "toastStack";
+      os.appendChild(toastStack);
+    }
+    var t = document.createElement("div");
+    t.className = "toast" + (opts.actionLabel ? " toast-action" : "");
+    if (opts.actionLabel) {
+      t.innerHTML = '<span class="toast-msg"></span><button class="toast-undo"></button>';
+      t.querySelector(".toast-msg").textContent = body;
+      t.querySelector(".toast-undo").textContent = opts.actionLabel;
+      t.querySelector(".toast-undo").addEventListener("click", function () {
+        if (typeof opts.onAction === "function") opts.onAction();
+        dismissTray(t);
+      });
+      setTimeout(function () { dismissTray(t); }, 6000);
+    } else {
+      t.textContent = body;
+      setTimeout(function () { dismissTray(t); }, 3000);
+    }
+    toastStack.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add("show"); });
+  }
+
+  // 2) Record in history + bump unread.
+  notifHistory.unshift({ ts: Date.now(), body: body, actionLabel: opts.actionLabel || null, read: false, onAction: opts.onAction });
+  if (notifHistory.length > 50) notifHistory.length = 50;
+  unreadCount++;
+  saveNotifHistory();
+  renderNotifCenter();
+  updateNotifBadge();
+}
+
+function showToast(msg) { pushNotification({ body: msg }); }
 
 function showToastDebounced(msg, delay) {
   if (toastTimer) clearTimeout(toastTimer);
@@ -416,31 +658,38 @@ function showToastDebounced(msg, delay) {
 }
 
 function showToastAction(msg, actionLabel, cb) {
-  var os = document.getElementById("os");
-  if (!os) return;
-  if (!toastStack) {
-    toastStack = document.createElement("div");
-    toastStack.id = "toastStack";
-    os.appendChild(toastStack);
-  }
-  var t = document.createElement("div");
-  t.className = "toast toast-action";
-  t.innerHTML = '<span class="toast-msg"></span><button class="toast-undo"></button>';
-  t.querySelector(".toast-msg").textContent = msg;
-  t.querySelector(".toast-undo").textContent = actionLabel;
-  toastStack.appendChild(t);
-  requestAnimationFrame(function () { t.classList.add("show"); });
-  var done = false;
-  function dismiss(apply) {
-    if (done) return;
-    done = true;
-    if (apply && cb) cb();
-    t.classList.remove("show");
-    setTimeout(function () { t.remove(); }, 300);
-  }
-  t.querySelector(".toast-undo").addEventListener("click", function () { dismiss(true); });
-  setTimeout(function () { dismiss(false); }, 5000);
+  pushNotification({ body: msg, actionLabel: actionLabel, onAction: cb });
 }
+
+function initNotifUI() {
+  notifBell = document.getElementById("notifBell");
+  notifCenter = document.getElementById("notifCenter");
+  notifBadge = document.getElementById("notifBadge");
+  loadNotifHistory();
+  renderNotifCenter();
+  notifInitDone = true; // suppress bump during the initial badge render
+  updateNotifBadge();
+  setTimeout(function () { notifInitDone = false; }, 0); // re-enable bump for later toasts
+  if (notifBell) {
+    notifBell.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!notifCenter) return;
+      var open = notifCenter.classList.toggle("open");
+      if (open) markAllRead();
+    });
+  }
+  if (notifCenter) {
+    // Keep the center from closing when interacting with it.
+    notifCenter.addEventListener("click", function (e) { e.stopPropagation(); });
+    document.addEventListener("click", function (e) {
+      if (!notifCenter.classList.contains("open")) return;
+      if (notifCenter.contains(e.target)) return;
+      if (notifBell && notifBell.contains(e.target)) return;
+      notifCenter.classList.remove("open");
+    });
+  }
+}
+initNotifUI();
 
 /* ---- badge widgets (timer finito) ---- */
 
@@ -3294,10 +3543,30 @@ if (settingsReplayBoot) {
   });
 }
 
+// --- Display fit mode (Screen fit) ---
+var settingsDisplayMode = document.querySelector("#settingsDisplayMode");
+
+function settingsApplyDisplayMode() {
+  if (!settingsDisplayMode) return;
+  settingsDisplayMode.value = getDisplayMode();
+}
+
+if (settingsDisplayMode) {
+  settingsDisplayMode.addEventListener("change", function () {
+    var m = settingsDisplayMode.value;
+    if (m !== "fill" && m !== "uniform" && m !== "fit") m = "fill";
+    try { localStorage.setItem(displayModeKey, m); } catch (e) {}
+    fitOsToScreen();
+    renderDock();
+    showToast("screen fit: " + m);
+  });
+}
+
 settingsApplyTopbar();
 settingsApplyLabels();
 settingsApplyAudio();
 settingsTopbarSync();
+settingsApplyDisplayMode();
 
 /* =========================================================
    PIXEL ART PAINT APP IMPLEMENTATION
@@ -5130,3 +5399,342 @@ initPixelPaint();
   renderPreviews();
   renderGrid();
 })();
+
+/* =========================================================
+   APP LAUNCHER / SPOTLIGHT
+   Ctrl/Cmd+Space toggles a search box that filters and opens apps.
+   ========================================================= */
+
+(function initAppLauncher() {
+  var launcher = document.getElementById("appLauncher");
+  var input = document.getElementById("appLauncherInput");
+  var listEl = document.getElementById("appLauncherList");
+  if (!launcher || !input || !listEl) return;
+
+  // App catalogue derived from the desktop icons so names/icons stay in sync.
+  var APPS = [
+    { id: "notes", name: "Notes" },
+    { id: "widgets", name: "Widgets" },
+    { id: "contacts", name: "Find me" },
+    { id: "browser", name: "Browser" },
+    { id: "music", name: "Music" },
+    { id: "calculator", name: "Calculator" },
+    { id: "paint", name: "Paint" },
+    { id: "compendium", name: "Compendium" },
+    { id: "settings", name: "Settings" },
+    { id: "themes", name: "Themes" },
+    { id: "gallery", name: "Gallery" }
+  ];
+  // Attach each app's icon (from its desktop icon) for the result thumbnail.
+  APPS.forEach(function (a) {
+    var img = document.querySelector("#" + a.id + "icon .appicon-img img");
+    a.icon = img ? img.src : "";
+  });
+
+  var open = false;
+  var filtered = APPS.slice();
+  var activeIndex = 0;
+
+  function isEditable(el) {
+    if (!el) return false;
+    var t = el.tagName;
+    return t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || el.isContentEditable;
+  }
+
+  function render() {
+    listEl.innerHTML = "";
+    if (!filtered.length) {
+      var empty = document.createElement("li");
+      empty.className = "app-launcher-empty";
+      empty.textContent = "No apps found";
+      listEl.appendChild(empty);
+      return;
+    }
+    filtered.forEach(function (a, i) {
+      var li = document.createElement("li");
+      li.className = "app-launcher-item" + (i === activeIndex ? " active" : "");
+      li.dataset.id = a.id;
+      li.innerHTML = (a.icon ? '<img src="' + a.icon + '" alt="">' : "") +
+        '<span class="app-launcher-name">' + a.name + "</span>";
+      li.addEventListener("mousemove", function () { setActive(i); });
+      li.addEventListener("click", function () { choose(a.id); });
+      listEl.appendChild(li);
+    });
+  }
+
+  function setActive(i) {
+    activeIndex = (i + filtered.length) % filtered.length;
+    var items = listEl.querySelectorAll(".app-launcher-item");
+    items.forEach(function (el, idx) { el.classList.toggle("active", idx === activeIndex); });
+    var cur = items[activeIndex];
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest" });
+  }
+
+  function filter(q) {
+    q = (q || "").trim().toLowerCase();
+    filtered = !q ? APPS.slice() : APPS.filter(function (a) {
+      return a.name.toLowerCase().indexOf(q) !== -1;
+    });
+    activeIndex = 0;
+    render();
+  }
+
+  function show() {
+    open = true;
+    input.value = "";
+    filter("");
+    launcher.classList.add("open");
+    launcher.style.display = "flex";
+    setTimeout(function () { input.focus(); }, 0);
+  }
+
+  function hide() {
+    open = false;
+    launcher.classList.remove("open");
+    launcher.style.display = "none";
+  }
+
+  function toggle() { open ? hide() : show(); }
+
+  function choose(id) {
+    var win = document.getElementById(id);
+    if (win) openWindow(win);
+    hide();
+  }
+
+  // Close when clicking the backdrop (but not the box).
+  launcher.addEventListener("mousedown", function (e) {
+    if (e.target === launcher) hide();
+  });
+
+  input.addEventListener("input", function () { filter(input.value); });
+
+  // While open, intercept navigation keys in the capture phase so they don't reach
+  // other global handlers (e.g. Esc-to-close-window).
+  document.addEventListener("keydown", function (e) {
+    if (!open) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); hide(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); setActive(activeIndex + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); setActive(activeIndex - 1); }
+    else if (e.key === "Enter") {
+      e.preventDefault(); e.stopPropagation();
+      if (filtered[activeIndex]) choose(filtered[activeIndex].id);
+    }
+  }, true);
+
+  // Toggle shortcut: Ctrl or Cmd + Space. Ignore while typing in a field.
+  document.addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.code !== "Space") return;
+    if (isEditable(document.activeElement)) return;
+    e.preventDefault();
+    toggle();
+  });
+})();
+
+/* =========================================================
+   DESKTOP CONTEXT MENU (right-click)
+   Change wallpaper / Refresh / Toggle desktop icons.
+   ========================================================= */
+
+(function initContextMenu() {
+  var menu = document.getElementById("desktopContextMenu");
+  if (!menu) return;
+  var desktopApps = document.getElementById("desktopApps");
+  var iconsKey = "isaacos_desktop_icons";
+
+  // Apply persisted icon visibility on load.
+  function applyIconsVisibility() {
+    if (!desktopApps) return;
+    var hidden = localStorage.getItem(iconsKey) === "0";
+    desktopApps.style.display = hidden ? "none" : "";
+    var toggle = menu.querySelector('[data-action="toggle-icons"]');
+    if (toggle) toggle.textContent = hidden ? "Show desktop icons" : "Hide desktop icons";
+  }
+
+  function isDesktopTarget(t) {
+    if (!t || !t.closest) return false;
+    // Only the desktop background (not windows, icons, widgets, dock, launcher, menu).
+    if (t.closest(".window, .appicon, .dock, .app-launcher, .context-menu, .widget-card, input, button, a, select, textarea"))
+      return false;
+    return true;
+  }
+
+  function openMenu(x, y) {
+    menu.classList.add("open");
+    menu.style.display = "flex";
+    // Keep it inside the viewport.
+    var mw = menu.offsetWidth, mh = menu.offsetHeight;
+    var left = Math.min(x, window.innerWidth - mw - 8);
+    var top = Math.min(y, window.innerHeight - mh - 8);
+    menu.style.left = Math.max(4, left) + "px";
+    menu.style.top = Math.max(4, top) + "px";
+  }
+
+  function closeMenu() { menu.classList.remove("open"); menu.style.display = "none"; }
+
+  document.addEventListener("contextmenu", function (e) {
+    var t = e.target;
+    if (window.self !== window.top) return; // skip inside iframes
+    if (!isDesktopTarget(t)) return; // let normal context menus work elsewhere
+    e.preventDefault();
+    applyIconsVisibility();
+    openMenu(e.clientX, e.clientY);
+  });
+
+  menu.querySelectorAll(".context-menu-item").forEach(function (item) {
+    item.addEventListener("click", function () {
+      var action = item.getAttribute("data-action");
+      closeMenu();
+      if (action === "wallpaper") {
+        var themesWin = document.getElementById("themes");
+        if (themesWin) openWindow(themesWin);
+        // Activate the wallpaper tab if the themes app is wired.
+        var wpTab = document.querySelector('.themes-tab[data-tab="wallpaper"]');
+        if (wpTab) {
+          wpTab.click();
+        }
+      } else if (action === "refresh") {
+        if (typeof fitOsToScreen === "function") fitOsToScreen();
+        if (typeof renderDock === "function") renderDock();
+        showToast("refreshed");
+      } else if (action === "toggle-icons") {
+        if (!desktopApps) return;
+        var hidden = desktopApps.style.display === "none";
+        desktopApps.style.display = hidden ? "" : "none";
+        try { localStorage.setItem(iconsKey, hidden ? "1" : "0"); } catch (e) {}
+        item.textContent = hidden ? "Hide desktop icons" : "Show desktop icons";
+        showToast(hidden ? "icons shown" : "icons hidden");
+      }
+    });
+  });
+
+  // Close on outside click / Esc / scroll.
+  document.addEventListener("pointerdown", function (e) {
+    if (menu.style.display !== "none" && !menu.contains(e.target)) closeMenu();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && menu.style.display !== "none") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenu();
+    }
+  });
+  window.addEventListener("blur", closeMenu);
+  document.addEventListener("scroll", closeMenu, true);
+
+  applyIconsVisibility();
+})();
+
+/* =========================================================
+   KEYBOARD SHORTCUTS
+   - F11: toggle fullscreen on the OS page.
+   - Ctrl/Cmd+Tab: app switcher (cycles open/minimized windows).
+   - Esc: close focused window (handled near the top of script.js).
+   ========================================================= */
+
+(function initShortcuts() {
+  // --- F11: toggle fullscreen of the whole OS page ---
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "F11") {
+      e.preventDefault();
+      var fsEl = document.fullscreenElement;
+      if (fsEl) {
+        if (document.exitFullscreen) document.exitFullscreen().catch(function () {});
+      } else if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(function () {});
+      }
+    }
+  });
+
+  // --- Ctrl/Cmd+Tab: app switcher ---
+  var switcher = null;
+  var switcherList = [];
+  var switcherIndex = 0;
+
+  function buildSwitcherList() {
+    var ids = Object.keys(openApps).filter(function (id) {
+      return openApps[id] === "open" || openApps[id] === "minimized";
+    });
+    // Order by z-index ascending so stepping forward walks back through the stack.
+    ids.sort(function (a, b) {
+      var za = parseInt((document.getElementById(a) || {}).style.zIndex, 10) || 0;
+      var zb = parseInt((document.getElementById(b) || {}).style.zIndex, 10) || 0;
+      return za - zb;
+    });
+    return ids;
+  }
+
+  function renderSwitcher() {
+    switcher.innerHTML = "";
+    switcherList.forEach(function (id, i) {
+      var win = document.getElementById(id);
+      var titleEl = win ? win.querySelector(".window-title") : null;
+      var name = titleEl ? titleEl.textContent : id;
+      var img = document.querySelector("#" + id + "icon .appicon-img img");
+      var el = document.createElement("div");
+      el.className = "app-switcher-item" + (i === switcherIndex ? " active" : "");
+      el.innerHTML = (img ? '<img src="' + img.src + '" alt="">' : "") + "<span>" + name + "</span>";
+      switcher.appendChild(el);
+    });
+  }
+
+  function showSwitcher() {
+    if (!switcher) {
+      switcher = document.createElement("div");
+      switcher.id = "appSwitcher";
+      switcher.className = "app-switcher";
+      document.body.appendChild(switcher);
+    }
+    switcherList = buildSwitcherList();
+    if (!switcherList.length) { hideSwitcher(); return; }
+    switcherIndex = switcherList.length - 1; // start at front-most
+    renderSwitcher();
+    switcher.style.display = "flex";
+  }
+
+  function advanceSwitcher() {
+    if (!switcherList.length) return;
+    switcherIndex = (switcherIndex + 1) % switcherList.length;
+    renderSwitcher();
+  }
+
+  function hideSwitcher() {
+    if (switcher) switcher.style.display = "none";
+  }
+
+  function commitSwitcher() {
+    if (!switcher || switcher.style.display === "none") return;
+    var id = switcherList[switcherIndex];
+    hideSwitcher();
+    if (!id) return;
+    var win = document.getElementById(id);
+    if (!win) return;
+    if (openApps[id] === "minimized") openWindow(win);
+    else bringToFront(win);
+  }
+
+  // Capture phase so this runs before the global Esc-to-close-window handler.
+  document.addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (!switcher || switcher.style.display === "none") showSwitcher();
+      else if (!e.repeat) advanceSwitcher();
+    } else if (e.key === "Escape" && switcher && switcher.style.display !== "none") {
+      e.preventDefault();
+      e.stopPropagation();
+      hideSwitcher();
+    }
+  }, true);
+
+  document.addEventListener("keyup", function (e) {
+    if ((e.key === "Control" || e.key === "Meta") && switcher && switcher.style.display !== "none") {
+      commitSwitcher();
+    }
+  });
+
+  window.addEventListener("blur", function () {
+    if (switcher && switcher.style.display !== "none") commitSwitcher();
+  });
+})();
+

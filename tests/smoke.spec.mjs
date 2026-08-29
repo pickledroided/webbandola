@@ -91,6 +91,56 @@ test("desktop fills the window uniformly (no stretch), topbar flush + full-width
   }
 });
 
+test("display-mode toggle: fill/uniform/fit persist and reflow the desktop", async ({ page }) => {
+  // Regression: the Settings 'Screen fit' control switches between fill (full-window,
+  // uniform, no blank), uniform (fixed canvas, centered, wallpaper edges) and fit (capped
+  // at native size). The choice is persisted and re-applied on reload.
+  await page.setViewportSize({ width: 1512, height: 800 }); // non-16:9 on purpose
+  await gotoApp(page);
+
+  async function setMode(mode) {
+    await page.locator("#settingsicon").click();
+    await page.locator("#settingsDisplayMode").selectOption(mode);
+    await page.waitForTimeout(120);
+  }
+
+  // fill: stage exactly fills the window, uniform scale (sx == sy), topbar reaches right edge.
+  await setMode("fill");
+  let r = await page.evaluate(() => {
+    const os = document.getElementById("os");
+    const m = new DOMMatrixReadOnly(getComputedStyle(os).transform);
+    const top = document.getElementById("top").getBoundingClientRect();
+    return { sx: m.a, sy: m.d, osW: Math.round(os.getBoundingClientRect().width), vw: innerWidth, topR: Math.round(top.right) };
+  });
+  expect(Math.abs(r.sx - r.sy)).toBeLessThan(0.001);
+  expect(r.osW).toBe(r.vw);
+  expect(r.topR).toBe(r.vw);
+
+  // uniform: fixed 1280x720 canvas scaled uniformly, centered -> narrower than window.
+  await setMode("uniform");
+  r = await page.evaluate(() => {
+    const os = document.getElementById("os");
+    const m = new DOMMatrixReadOnly(getComputedStyle(os).transform);
+    return { sx: m.a, sy: m.d, osW: Math.round(os.getBoundingClientRect().width), vw: innerWidth };
+  });
+  expect(Math.abs(r.sx - r.sy)).toBeLessThan(0.001);
+  expect(r.osW).toBeLessThan(r.vw); // letterboxed, wallpaper edges visible
+
+  // fit: never upscaled past native 1280 -> scale <= 1.
+  await setMode("fit");
+  r = await page.evaluate(() => {
+    const os = document.getElementById("os");
+    const m = new DOMMatrixReadOnly(getComputedStyle(os).transform);
+    return { sx: m.a, sy: m.d };
+  });
+  expect(Math.abs(r.sx - r.sy)).toBeLessThan(0.001);
+  expect(r.sx).toBeLessThanOrEqual(1.0001);
+
+  // persisted to localStorage (re-applied on next load by getDisplayMode()/fitOsToScreen)
+  const persisted = await page.evaluate(() => localStorage.getItem("isaacos_display_mode"));
+  expect(persisted).toBe("fit");
+});
+
 test("dragging a window tracks the pointer on non-16:9 windows", async ({ page }) => {
   // Regression: with the desktop stretched to fill non-16:9 windows, drag math must use
   // per-axis scale so windows follow the cursor instead of drifting.
@@ -218,6 +268,107 @@ test("settings reset-all clears isaacos_ keys", async ({ page }) => {
   expect(notesAfter).toBe(null);
 });
 
+test("clicking a window raises it (focus/z-index) and dragging to an edge snaps it", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await gotoApp(page);
+  await page.locator("#calculatoricon").click();
+  await page.locator("#notesicon").click();
+  await page.waitForTimeout(150);
+
+  // Notes opened after calculator => notes has the higher z-index (focused on top).
+  const z = await page.evaluate(() => {
+    const c = document.getElementById("calculator").style.zIndex;
+    const n = document.getElementById("notes").style.zIndex;
+    return { c: parseInt(c, 10) || 0, n: parseInt(n, 10) || 0 };
+  });
+  expect(z.n).toBeGreaterThan(z.c);
+
+  // Drag notes aside so it no longer covers the calculator, then click the calculator
+  // header -> it should come to front again.
+  const nHead = page.locator("#notesheader");
+  const nb = await nHead.boundingBox();
+  await page.mouse.move(nb.x + 30, nb.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(900, 420, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(80);
+  const calcHead = page.locator("#calculatorheader");
+  const cb = await calcHead.boundingBox();
+  await page.mouse.click(cb.x + 20, cb.y + 8);
+  await page.waitForTimeout(80);
+  const z2 = await page.evaluate(() => {
+    const c = document.getElementById("calculator").style.zIndex;
+    const n = document.getElementById("notes").style.zIndex;
+    return { c: parseInt(c, 10) || 0, n: parseInt(n, 10) || 0 };
+  });
+  expect(z2.c).toBeGreaterThan(z2.n);
+
+  // Drag notes to the right edge -> should snap to right half (left ~= 50% of stage width).
+  const header = page.locator("#notesheader");
+  const box = await header.boundingBox();
+  await page.mouse.move(box.x + 30, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(1260, 40, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(120);
+  const snap = await page.evaluate(() => {
+    const n = document.getElementById("notes");
+    return { left: Math.round(n.offsetLeft), width: Math.round(n.offsetWidth), stageW: 1280 };
+  });
+  expect(snap.left).toBeGreaterThan(snap.stageW * 0.4);
+  expect(snap.width).toBeGreaterThan(snap.stageW * 0.4);
+});
+
+test("app launcher opens with Ctrl/Cmd+Space, filters, and launches an app", async ({ page }) => {
+  await gotoApp(page);
+  // Open with Ctrl+Space
+  await page.keyboard.press("Control+Space");
+  await expect(page.locator("#appLauncher")).toBeVisible();
+  // It lists all apps initially
+  expect(await page.locator(".app-launcher-item").count()).toBeGreaterThan(5);
+  // Type to filter
+  await page.locator("#appLauncherInput").fill("calc");
+  await page.waitForTimeout(80);
+  const items = page.locator(".app-launcher-item");
+  expect(await items.count()).toBe(1);
+  expect(await items.first().innerText()).toContain("Calculator");
+  // Enter launches it and closes the launcher
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#appLauncher")).toBeHidden();
+  await expect(page.locator("#calculator")).toBeVisible();
+  // Reopen and Esc closes without launching
+  await page.keyboard.press("Control+Space");
+  await expect(page.locator("#appLauncher")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#appLauncher")).toBeHidden();
+});
+
+test("right-click desktop shows context menu; wallpaper/refresh/toggle-icons work", async ({ page }) => {
+  await gotoApp(page);
+  // Right-click on empty desktop (top-left area away from icons/windows) opens the menu.
+  await page.mouse.click(8, 120, { button: "right" });
+  await expect(page.locator("#desktopContextMenu")).toBeVisible();
+  // "Change wallpaper" opens Themes and switches to the wallpaper tab.
+  await page.locator('.context-menu-item[data-action="wallpaper"]').click();
+  await expect(page.locator("#themes")).toBeVisible();
+  const wpActive = await page.evaluate(() =>
+    document.getElementById("themesWallpaper").classList.contains("visible"));
+  expect(wpActive).toBe(true);
+
+  // Re-open menu and toggle icons off.
+  await page.mouse.click(8, 120, { button: "right" });
+  await expect(page.locator("#desktopContextMenu")).toBeVisible();
+  await page.locator('.context-menu-item[data-action="toggle-icons"]').click();
+  await expect(page.locator("#desktopApps")).toBeHidden();
+  const hidden = await page.evaluate(() => localStorage.getItem("isaacos_desktop_icons"));
+  expect(hidden).toBe("0");
+
+  // Refresh is harmless (just re-layouts); clicking it should not throw.
+  await page.mouse.click(8, 120, { button: "right" });
+  await page.locator('.context-menu-item[data-action="refresh"]').click();
+  await expect(page.locator("#desktopContextMenu")).toBeHidden();
+});
+
 test("weather widget fails offline gracefully (no unhandled rejection)", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -230,3 +381,87 @@ test("weather widget fails offline gracefully (no unhandled rejection)", async (
   await page.waitForTimeout(800);
   expect(errors.filter((m) => /fetch|network|open-meteo/i.test(m))).toEqual([]);
 });
+
+test("Ctrl/Cmd+Tab app switcher cycles open windows; Esc closes focused window", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await gotoApp(page);
+  await page.locator("#calculatoricon").click();
+  await page.locator("#notesicon").click();
+  await page.waitForTimeout(150);
+
+  // Open the switcher with Ctrl+Tab; it should list the open apps.
+  await page.keyboard.down("Control");
+  await page.keyboard.press("Tab");
+  await expect(page.locator("#appSwitcher")).toBeVisible();
+  const items = page.locator(".app-switcher-item");
+  expect(await items.count()).toBeGreaterThanOrEqual(2);
+
+  // Release Ctrl -> commits to the highlighted window (notes was front-most, so it stays).
+  await page.keyboard.up("Control");
+  await expect(page.locator("#appSwitcher")).toBeHidden();
+
+  // Esc closes the focused (top) window.
+  const topBefore = await page.evaluate(() => {
+    let top = null, z = -1;
+    document.querySelectorAll(".window").forEach((w) => {
+      if (w.style.display === "none" || w.classList.contains("closing")) return;
+      const zz = parseInt(w.style.zIndex, 10) || 0;
+      if (zz > z) { z = zz; top = w.id; }
+    });
+    return top;
+  });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  const closed = await page.evaluate((id) => {
+    const w = document.getElementById(id);
+    return !w || w.style.display === "none" || w.classList.contains("closing");
+  }, topBefore);
+  expect(closed).toBe(true);
+});
+
+test("notifications: toasts stack, bell badge counts, center lists and clears", async ({ page }) => {
+  await gotoApp(page);
+  // Two toasts -> both appear in the live tray, bell badge shows 2, history recorded.
+  await page.evaluate(() => { showToast("first"); showToast("second"); });
+  await page.waitForTimeout(120);
+  expect(await page.locator("#toastStack .toast").count()).toBe(2);
+  const badge = await page.evaluate(() => document.getElementById("notifBadge").textContent);
+  expect(badge).toBe("2");
+  const hist = await page.evaluate(() => JSON.parse(localStorage.getItem("isaacos_notifications") || "[]").length);
+  expect(hist).toBe(2);
+
+  // Open the center via the bell; it lists both and clears the unread badge.
+  await page.locator("#notifBell").click();
+  await expect(page.locator("#notifCenter")).toHaveClass(/open/);
+  expect(await page.locator(".notif-row").count()).toBe(2);
+  const badgeAfter = await page.evaluate(() => document.getElementById("notifBadge").style.display);
+  expect(badgeAfter).toBe("none");
+
+  // Clear all empties the center.
+  await page.locator(".notif-clear").click();
+  await expect(page.locator(".notif-empty")).toBeVisible();
+});
+
+test("overlays animate in: launcher/context-menu/notif-center get .open, bell bumps on new toast", async ({ page }) => {
+  await gotoApp(page);
+  // Launcher gets .open when shown via Ctrl+Space.
+  await page.keyboard.press("Control+Space");
+  await expect(page.locator(".app-launcher")).toHaveClass(/open/);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".app-launcher")).not.toHaveClass(/open/);
+
+  // Context menu gets .open on right-click desktop.
+  await page.mouse.click(1150, 650, { button: "right" });
+  await expect(page.locator("#desktopContextMenu")).toHaveClass(/open/);
+  await page.keyboard.press("Escape");
+
+  // Notification center gets .open when opened; bell bumps on a new toast.
+  await page.evaluate(() => { document.getElementById("notifCenter").classList.remove("open"); document.getElementById("notifBell").classList.remove("bump"); });
+  await page.evaluate(() => showToast("animated toast"));
+  await page.waitForTimeout(30); // let updateNotifBadge add the bump class
+  await expect(page.locator("#notifBell")).toHaveClass(/bump/);
+  await page.locator("#notifBell").click();
+  await expect(page.locator("#notifCenter")).toHaveClass(/open/);
+});
+
+
