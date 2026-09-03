@@ -13,8 +13,25 @@ const APPS = [
   ["themesicon", "themes"],
   ["settingsicon", "settings"],
   ["painticon", "paint"],
-  ["widgetsicon", "widgets"]
+  ["widgetsicon", "widgets"],
+  ["tetrisicon", "tetris"]
 ];
+
+// Wait until a window's bounding box stops changing (open/animation settled),
+// so drag/resize tests interact with a stable target instead of a moving one.
+async function settleWindow(page, selector) {
+  let prev = null;
+  for (let i = 0; i < 30; i++) {
+    const box = await page.locator(selector).boundingBox();
+    if (box && prev && Math.abs(box.x - prev.x) < 0.5 && Math.abs(box.y - prev.y) < 0.5 &&
+        Math.abs(box.width - prev.width) < 0.5 && Math.abs(box.height - prev.height) < 0.5) {
+      return box;
+    }
+    prev = box;
+    await page.waitForTimeout(50);
+  }
+  return prev;
+}
 
 // Single deterministic navigation. A second navigation (reload / 2nd goto) hangs
 // in this headless build, so every test does exactly one goto. Each Playwright
@@ -31,10 +48,22 @@ async function gotoApp(page, { preScript } = {}) {
   });
   if (preScript) await page.addInitScript(preScript);
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  // The boot intro overlay (z-index:100000, inset:0) covers the screen and
+  // swallows key/pointer events until dismissed. Dismiss it and wait for it to
+  // actually be gone so the first click/keypress in a test never lands on it
+  // (this was the source of order-dependent flakiness in the full run).
   await page.evaluate(() => {
     const b = document.getElementById("bootIntro");
-    if (b) b.style.display = "none";
+    if (b) {
+      b.style.display = "none";
+      b.classList.add("hidden");
+    }
   });
+  await page.waitForFunction(() => {
+    const b = document.getElementById("bootIntro");
+    return !b || getComputedStyle(b).display === "none";
+  });
+  await page.waitForSelector("#os", { state: "visible" });
 }
 
 test("boot intro overlay exists and is skippable", async ({ page }) => {
@@ -188,6 +217,8 @@ test("window is draggable via pointer events", async ({ page }) => {
   await gotoApp(page);
   await page.locator("#notesicon").click();
   const win = page.locator("#notes");
+  // Let the window's open animation settle so the drag targets a stable position.
+  await settleWindow(page, "#notes");
   const before = await win.boundingBox();
   const hb = await page.locator("#notesheader").boundingBox();
   await page.mouse.move(hb.x + 40, hb.y + 8);
@@ -202,9 +233,15 @@ test("window is resizable via pointer events", async ({ page }) => {
   await gotoApp(page);
   await page.locator("#calculatoricon").click();
   const win = page.locator("#calculator");
+  // Let the window's open animation settle before grabbing the resize handle.
+  await settleWindow(page, "#calculator");
   const before = await win.boundingBox();
-  const hx = before.x + before.width - 4;
-  const hy = before.y + before.height - 4;
+  // Grab the resize handle (bottom-right corner) by its own bounding box so we
+  // always hit it, regardless of where the window landed on the stage.
+  const handle = win.locator(".resize-handle");
+  const hb = await handle.boundingBox();
+  const hx = hb.x + hb.width / 2;
+  const hy = hb.y + hb.height / 2;
   await page.mouse.move(hx, hy);
   await page.mouse.down();
   await page.mouse.move(hx + 60, hy + 50, { steps: 8 });
@@ -462,6 +499,31 @@ test("overlays animate in: launcher/context-menu/notif-center get .open, bell bu
   await expect(page.locator("#notifBell")).toHaveClass(/bump/);
   await page.locator("#notifBell").click();
   await expect(page.locator("#notifCenter")).toHaveClass(/open/);
+});
+
+test("layout lab: toggle Classic vs Dock re-skins the desktop, persists, no desktop icons in Dock", async ({ page }) => {
+  await gotoApp(page);
+  await page.locator("#layoutLabBtn").click();
+  await expect(page.locator("#layoutlab")).toBeVisible();
+
+  // Force Classic first (the comparison starts from a known state).
+  await page.locator("#layoutClassic").click();
+  expect(await page.evaluate(() => document.body.classList.contains("layout-classic"))).toBe(true);
+  await expect(page.locator("#notesicon")).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("isaacos_layout_mode"))).toBe("classic");
+
+  // Switch to Dock: icons hidden, dock shows ALL apps (12, welcome excluded), redesign class present.
+  await page.locator("#layoutDock").click();
+  await expect(page.locator("#notesicon")).toBeHidden();
+  expect(await page.evaluate(() => document.getElementById("dock").classList.contains("dock-redesign"))).toBe(true);
+  expect(await page.locator("#dock .dock-item").count()).toBe(12);
+  expect(await page.evaluate(() => localStorage.getItem("isaacos_layout_mode"))).toBe("dock");
+
+  // Back to Classic restores icons and removes the redesign.
+  await page.locator("#layoutClassic").click();
+  await expect(page.locator("#notesicon")).toBeVisible();
+  expect(await page.evaluate(() => document.getElementById("dock").classList.contains("dock-redesign"))).toBe(false);
+  expect(await page.evaluate(() => localStorage.getItem("isaacos_layout_mode"))).toBe("classic");
 });
 
 

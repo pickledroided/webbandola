@@ -126,6 +126,14 @@ function getOsScaleXY() {
 window.addEventListener("resize", fitOsToScreen);
 initOsBase();
 fitOsToScreen();
+// The browser may not have its final viewport dimensions at script-parse time
+// (e.g. Playwright applies the configured viewport after navigation). Re-fit on
+// load and on the next frames so the stage is scaled for the real window, not a
+// transient default size.
+window.addEventListener("load", fitOsToScreen);
+requestAnimationFrame(function () {
+  requestAnimationFrame(function () { fitOsToScreen(); });
+});
 
 // --- Window management ---
 
@@ -175,6 +183,7 @@ function initializeWindow(id) {
         element.style.transform = maxState.transform;
         maxState = null;
         maxButton.classList.remove("restore");
+        maxButton.title = "Maximize";
       } else {
         maxState = {
           left: element.style.left,
@@ -192,6 +201,7 @@ function initializeWindow(id) {
         element.style.height = (osc.clientHeight - tbH) + "px";
         element.style.transform = "none";
         maxButton.classList.add("restore");
+        maxButton.title = "Restore";
       }
     }
     var maxButton = document.createElement("div");
@@ -288,6 +298,9 @@ function closeWindow(element) {
   element.classList.remove("focused");
   openApps[element.id] = "closed";
   renderDock();
+  // Stop background loops of apps that keep running (e.g. Tetris RAF + Web Audio)
+  // so closing a window doesn't leave the CPU busy and lag animations like the dock.
+  if (element && element.id === "tetris" && window.TETRIS && typeof TETRIS.stop === "function") TETRIS.stop();
   element.classList.add("closing");
   element.addEventListener("animationend", function () {
     if (!element.classList.contains("closing")) return;
@@ -315,41 +328,86 @@ function minWindow(element) {
 }
 
 var dockItems = {};
+var dockIds = ["notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings", "paint", "widgets", "tetris"];
+
+// FLIP: animate every remaining dock icon to its new slot when the set changes
+// (open/close), so neighbours slide to close/open the gap instead of snapping.
+function flipDock(firstRects) {
+  var dock = document.querySelector("#dock");
+  if (!dock) return;
+  dockIds.forEach(function (id) {
+    var item = dockItems[id];
+    var first = firstRects[id];
+    if (!item || !item.parentNode || !first) return;
+    var last = item.getBoundingClientRect();
+    var dx = first.left - last.left;
+    if (!dx) return;
+    // Animate on a SEPARATE channel (--dock-slide) so we never overwrite the
+    // magnify scale (-dock-mag / -dock-lift). Overwriting transform caused the
+    // hovered icon to dip to scale 1 then snap back.
+    item.style.setProperty("--dock-slide", dx + "px");
+    void item.offsetWidth;
+    item.style.setProperty("--dock-slide", "0px");
+  });
+}
 
 function renderDock(){
   var dock = document.querySelector("#dock");
-  var ids = ["welcome", "notes", "contacts", "browser", "calculator", "compendium", "gallery", "music", "themes", "settings", "paint", "widgets"];
 
   var present = {};
-  ids.forEach(function (id) {
+  dockIds.forEach(function (id) {
     if (openApps[id] !== "open" && openApps[id] !== "minimized") return;
     present[id] = true;
   });
 
+  // Capture positions BEFORE the DOM mutates (FLIP "first").
+  var firstRects = {};
+  dockIds.forEach(function (id) {
+    var item = dockItems[id];
+    if (item && item.parentNode) firstRects[id] = item.getBoundingClientRect();
+  });
+
+  // Remove icons that are no longer open (classic mode only). Take them out of
+  // flow so neighbours close the gap, and let the suck-out animation play in place.
   Object.keys(dockItems).forEach(function (id) {
     if (present[id]) return;
     var item = dockItems[id];
     delete dockItems[id];
+    if (item.classList.contains("leaving")) return;
+    var dr = dock.getBoundingClientRect();
+    var ir = item.getBoundingClientRect();
+    item.style.position = "absolute";
+    item.style.left = (ir.left - dr.left) + "px";
+    item.style.top = (ir.top - dr.top) + "px";
+    item.style.margin = "0";
     item.classList.add("leaving");
-    item.addEventListener("animationend", function () {
-      item.remove();
-      var dock = document.querySelector("#dock");
-      dock.classList.toggle("dock-empty", dock.querySelectorAll(".dock-item").length === 0);
+    item.addEventListener("animationend", function (e) {
+      if (e.animationName !== "dockItemOut") return;
+      if (item.parentNode) item.remove();
+      var d = document.querySelector("#dock");
+      d.classList.toggle("dock-empty", d.querySelectorAll(".dock-item:not(.leaving)").length === 0);
     });
   });
 
-  ids.forEach(function (id) {
+  dockIds.forEach(function (id) {
     if (!present[id]) return;
 
     if (dockItems[id]) {
-      dockItems[id].classList.toggle("minimized", openApps[id] === "minimized");
+      var st = openApps[id];
+      dockItems[id].classList.toggle("minimized", st === "minimized");
+      dockItems[id].classList.toggle("active", st === "open");
+      dockItems[id].classList.toggle("running", st === "open" || st === "minimized");
       return;
     }
 
     var iconImg = document.querySelector("#" + id + "icon img");
     var src = iconImg ? iconImg.src : "img/avatar-isaac.png";
     var item = document.createElement("div");
-    item.className = "dock-item" + (openApps[id] === "minimized" ? " minimized" : "");
+    var st0 = openApps[id];
+    item.className = "dock-item"
+      + (st0 === "minimized" ? " minimized" : "")
+      + (st0 === "open" ? " active" : "")
+      + (st0 === "open" || st0 === "minimized" ? " running" : "");
     item.innerHTML = '<img src="' + src + '" alt="' + id + '">';
 
     item.addEventListener("click", function () {
@@ -365,7 +423,38 @@ function renderDock(){
     dock.appendChild(item);
   });
 
-  dock.classList.toggle("dock-empty", dock.querySelectorAll(".dock-item").length === 0);
+  // FLIP "last" -> animate neighbours into their new slots.
+  flipDock(firstRects);
+
+  dock.classList.toggle("dock-empty", dock.querySelectorAll(".dock-item:not(.leaving)").length === 0);
+}
+
+// macOS-style cursor-proximity magnify: icons nearest the pointer grow + lift.
+function initDockMagnify() {
+  var dock = document.getElementById("dock");
+  if (!dock) return;
+  var MAX = 1.14, RADIUS = 92, LIFT = 16;
+  function onMove(e) {
+    var items = dock.querySelectorAll(".dock-item");
+    items.forEach(function (it) {
+      var r = it.getBoundingClientRect();
+      var cx = r.left + r.width / 2;
+      var cy = r.top + r.height / 2;
+      var d = Math.hypot(e.clientX - cx, e.clientY - cy);
+      var t = Math.max(0, 1 - d / RADIUS);
+      it.style.setProperty("--dock-mag", (1 + (MAX - 1) * t).toFixed(3));
+      it.style.setProperty("--dock-lift", (-LIFT * t).toFixed(1) + "px");
+    });
+  }
+  function onLeave() {
+    var items = dock.querySelectorAll(".dock-item");
+    items.forEach(function (it) {
+      it.style.setProperty("--dock-mag", "1");
+      it.style.setProperty("--dock-lift", "0px");
+    });
+  }
+  dock.addEventListener("mousemove", onMove);
+  dock.addEventListener("mouseleave", onLeave);
 }
 
 function dragElement(element) {
@@ -932,6 +1021,337 @@ var themesScreen = initializeApp("themes");
 var settingsScreen = initializeApp("settings");
 var paintScreen = initializeApp("paint");
 var widgetsScreen = initializeApp("widgets");
+var tetrisScreen = initializeApp("tetris");
+
+// ---- Tetris (minimal, self-contained) ----
+var TETRIS = (function () {
+  var canvas, ctx, scoreEl, levelEl;
+  var COLS = 10, ROWS = 20, BLOCK = 20;
+  var board = [];
+  var pieces = [
+    [[1,1,1,1]],                         // I
+    [[1,1],[1,1]],                       // O
+    [[0,1,0],[1,1,1]],                   // T
+    [[0,1,1],[1,1,0]],                   // S
+    [[1,1,0],[0,1,1]],                   // Z
+    [[1,0],[1,1],[1,0]],                 // L
+    [[0,1],[1,1],[1,0]]                  // J
+  ];
+  // Piece colors themed to the WebOS burgundy/gold palette instead of neon retro tones.
+  // Stored as CSS custom-property keys, resolved through computed styles so they
+  // track the active theme. Indexes must stay aligned with the pieces[] array.
+  var COLORS = ["--ui-dim","--ui-text","--blood-deep","--ui-card-hover","--blood","--blood-hover","--blood-dark"];
+  var dropCounter = 0, dropInterval = 700, lastTime = 0;
+  var player = { matrix: null, pos: {x:0, y:0}, color: null };
+  var paused = false, loopId = null;
+  var score = 0, level = 0, linesCleared = 0;
+    var tetrisCtx = null;
+    var overlayEl = null;
+    var restartBtn = null;
+
+  function init() {
+      canvas = document.getElementById("tetrisCanvas");
+      scoreEl = document.getElementById("tetrisScore");
+      levelEl = document.getElementById("tetrisLevel");
+      overlayEl = document.getElementById("tetrisOverlay");
+      restartBtn = document.getElementById("tetrisRestartBtn");
+      if (!canvas) return;
+      ctx = canvas.getContext("2d");
+      canvas.width = COLS * BLOCK;
+      canvas.height = ROWS * BLOCK;
+      if (restartBtn) restartBtn.addEventListener("click", function() { reset(); });
+      // Create the audio context up front (it starts suspended under the autoplay
+      // policy). It only produces sound after a real user gesture resumes it, so
+      // piece-drop bleeps play from the very first lock.
+      tetrisCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var unlocked = false;
+      // Resume on the first user gesture over the game (click/keypress on canvas).
+      function unlockAudio() {
+        if (!tetrisCtx || unlocked) return;
+        unlocked = true;
+        if (tetrisCtx.state === "suspended") tetrisCtx.resume();
+        canvas.removeEventListener("keydown", unlockAudio);
+        canvas.removeEventListener("mousedown", unlockAudio);
+      }
+      canvas.addEventListener("keydown", unlockAudio);
+      canvas.addEventListener("mousedown", unlockAudio);
+      reset();
+    }
+
+    function reset() {
+      board = [];
+      for (var y = 0; y < ROWS; y++) board.push(new Array(COLS).fill(0));
+      dropCounter = 0; dropInterval = 700; lastTime = 0;
+      score = 0; level = 0; linesCleared = 0;
+      updateScore();
+      player.matrix = null;
+      player.pos = {x:0,y:0};
+      player.color = null;
+      if (overlayEl) overlayEl.classList.remove("show");
+      spawn();
+      draw();
+    }
+
+  // Resolve a CSS custom-property color to a concrete value the canvas can paint.
+  function resolveColor(key) {
+    if (!canvas) return key;
+    var v = getComputedStyle(canvas.ownerDocument.documentElement).getPropertyValue(key).trim();
+    return v || key;
+  }
+  // Web Audio helpers — short bleeps themed to the app, no external asset files.
+  function tetrisBleep(freq, dur, type) {
+    try {
+      // tetrisCtx is created up front in init(); if it was never made (e.g. init
+      // failed), bail out gracefully.
+      if (!tetrisCtx) return;
+      // A real gesture is required to play audio on most browsers; the ctx is
+      // resumed on the first click/keypress via unlockAudio.
+      if (tetrisCtx.state === "suspended") return;
+      var o = tetrisCtx.createOscillator(), g = tetrisCtx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.001, tetrisCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.12, tetrisCtx.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, tetrisCtx.currentTime + (dur || 0.08));
+      o.connect(g); g.connect(tetrisCtx.destination);
+      o.start();
+      o.stop(tetrisCtx.currentTime + (dur || 0.08));
+    } catch (e) {}
+  }
+
+  function spawn() {
+    var idx = Math.floor(Math.random() * pieces.length);
+    player.color = resolveColor(COLORS[idx]);
+    player.matrix = pieces[idx];
+    player.pos = {x: Math.floor(COLS/2) - 1, y: 0};
+    // O-piece is 2x2; center it
+    if (idx === 1) player.pos.x = Math.floor(COLS/2);
+    if (!valid(player.matrix, player.pos)) gameOver();
+  }
+
+  function valid(matrix, pos) {
+    for (var y = 0; y < matrix.length; y++) {
+      for (var x = 0; x < matrix[y].length; x++) {
+        if (matrix[y][x]) {
+          var nx = pos.x + x, ny = pos.y + y;
+          if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+          if (ny >= 0 && board[ny][nx]) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function merge() {
+    for (var y = 0; y < player.matrix.length; y++) {
+      for (var x = 0; x < player.matrix[y].length; x++) {
+        if (player.matrix[y][x]) {
+          var ny = player.pos.y + y, nx = player.pos.x + x;
+          if (ny >= 0 && ny < ROWS && nx >= 0 && nx < COLS) board[ny][nx] = player.color;
+        }
+      }
+    }
+  }
+
+  function rotate(matrix, dir) {
+    for (var i = 0; i < matrix.length; i++) {
+      for (var j = i; j < matrix.length - i - 1; j++) {
+        var temp = matrix[i][j];
+        matrix[i][j] = matrix[matrix.length - 1 - j][i];
+        matrix[matrix.length - 1 - j][i] = matrix[matrix.length - 1 - i][matrix.length - 1 - j];
+        matrix[matrix.length - 1 - i][matrix.length - 1 - j] = matrix[j][matrix.length - 1 - i];
+        matrix[j][matrix.length - 1 - i] = temp;
+      }
+    }
+    if (dir < 0) matrix.reverse().forEach(r => r.reverse());
+  }
+
+  function playerRotate(dir) {
+    var pos = player.pos.x;
+    var wallKick = 1;
+    rotate(player.matrix, dir);
+    while (!valid(player.matrix, player.pos)) {
+      player.pos.x += wallKick;
+      wallKick = -wallKick;
+      if (wallKick > 2) {
+        rotate(player.matrix, -dir); // undo
+        player.pos.x = pos;
+        return;
+      }
+    }
+  }
+
+  function playerDrop() {
+    player.pos.y++;
+    if (!valid(player.matrix, player.pos)) {
+      player.pos.y--;
+      merge();
+      sweep();
+      spawn();
+      tetrisBleep(120, 0.05);
+    }
+    dropCounter = 0;
+  }
+
+  function playerFall() {
+    var startY = player.pos.y;
+    while (valid(player.matrix, {x: player.pos.x, y: player.pos.y + 1})) player.pos.y++;
+    playerDropHard();
+  }
+
+  function playerDropHard() {
+    merge();
+    sweep();
+    spawn();
+    dropCounter = 0;
+    tetrisBleep(120, 0.05);
+  }
+
+  function sweep() {
+    var lines = 0;
+    outer: for (var y = board.length - 1; y >= 0; y--) {
+      // A row clears when every cell is filled (not empty).
+      if (board[y].every(Boolean)) {
+        board.splice(y, 1);
+        board.unshift(new Array(COLS).fill(0));
+        y++; // re-check this new row
+        lines++;
+        linesCleared++;
+      } else if (board[y].some(Boolean)) {
+        // stop at the first non-empty (but not full) row: nothing above can clear
+        continue outer;
+      }
+    }
+    if (lines > 0) {
+      // A short ascending bleep per cleared line — themed, no assets needed.
+      var clearNotes = [330, 440, 554, 660];
+      for (var i = 0; i < Math.min(lines, clearNotes.length); i++) {
+        (function (n) { setTimeout(function () { tetrisBleep(clearNotes[n], 0.12); }, i * 60); })(i);
+      }
+      // Standard Tetris scoring: more points per line + level bonus.
+      var points = [0, 40, 100, 300, 1200];
+      score += points[lines] * (level + 1);
+      level = Math.floor(linesCleared / 10);
+      dropInterval = Math.max(120, 700 - level * 45);
+      updateScore();
+    }
+  }
+
+  function updateScore() {
+    if (scoreEl) scoreEl.textContent = "Score: " + score;
+    if (levelEl) levelEl.textContent = "Level: " + level;
+  }
+
+  function drawMatrix(matrix, offset) {
+      var root = canvas.ownerDocument.documentElement;
+      var cs = getComputedStyle(root);
+      var strokeStyle = cs.getPropertyValue("--blood-deep").trim() || "#331a1a";
+      for (var y = 0; y < matrix.length; y++) {
+        for (var x = 0; x < matrix[y].length; x++) {
+          if (matrix[y][x]) {
+            ctx.fillStyle = player.color;
+            ctx.fillRect((offset.x + x) * BLOCK, (offset.y + y) * BLOCK, BLOCK, BLOCK);
+            // Outline: use a contrasting dark color (from theme) instead of block color
+            ctx.strokeStyle = strokeStyle;
+            ctx.lineWidth = 1;
+            ctx.strokeRect((offset.x + x) * BLOCK, (offset.y + y) * BLOCK, BLOCK, BLOCK);
+          }
+        }
+      }
+    }
+
+  function draw() {
+    if (!ctx) return;
+    var root = canvas.ownerDocument.documentElement;
+    var cs = getComputedStyle(root);
+    ctx.fillStyle = cs.getPropertyValue("--ui-panel").trim() || "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (var y = 0; y < ROWS; y++) {
+      for (var x = 0; x < COLS; x++) {
+        if (board[y][x]) {
+          ctx.fillStyle = board[y][x];
+          ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+          ctx.strokeStyle = cs.getPropertyValue("--blood-deep").trim() || "#331a1a";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+        }
+      }
+    }
+    if (player.matrix) drawMatrix(player.matrix, player.pos);
+  }
+
+  function update(time = 0) {
+    if (paused) return;
+    var delta = time - lastTime;
+    lastTime = time;
+    dropCounter += delta;
+    if (dropCounter > dropInterval) playerDrop();
+    draw();
+    loopId = requestAnimationFrame(update);
+  }
+
+  function gameOver() {
+      stop();
+      if (scoreEl) scoreEl.textContent = "Score: " + score;
+      if (overlayEl) overlayEl.classList.add("show");
+      // Descending bleep — a short, clear "end of game" cue.
+      tetrisBleep(440, 0.1);
+      setTimeout(function () { tetrisBleep(220, 0.1); }, 60);
+      setTimeout(function () { tetrisBleep(110, 0.15); }, 130);
+    }
+
+  function start() { if (canvas) { if (loopId != null) cancelAnimationFrame(loopId); reset(); paused = false; lastTime = 0; dropCounter = 0; loopId = requestAnimationFrame(update); } }
+  function pause() { if (loopId != null) { cancelAnimationFrame(loopId); loopId = null; } paused = true; }
+  function resume() { if (canvas && player.matrix) { paused = false; lastTime = 0; dropCounter = 0; if (loopId != null) cancelAnimationFrame(loopId); loopId = requestAnimationFrame(update); } }
+  function stop() { if (loopId != null) { cancelAnimationFrame(loopId); loopId = null; } paused = true; }
+
+  // Keyboard: only active when the Tetris window is the focused app.
+  function onKey(e) {
+    if (document.body.classList.contains("layout-dock") && !document.querySelector("#tetris.focused")) return;
+    if (!document.querySelector("#tetris.focused") || openApps["tetris"] !== "open") return;
+    if (e.target.tagName === "INPUT") return;
+    switch (e.key) {
+      case "ArrowLeft":  player.pos.x--; if (!valid(player.matrix, player.pos)) player.pos.x++; break;
+      case "ArrowRight": player.pos.x++; if (!valid(player.matrix, player.pos)) player.pos.x--; break;
+      case "ArrowDown":  playerDrop(); break;
+      case "ArrowUp":    playerRotate(1); break;
+      case " ":
+      case "Space":      playerFall(); e.preventDefault(); break;
+    }
+    draw();
+  }
+
+  function bind() {
+    init();
+    document.addEventListener("keydown", onKey);
+    // Pause when window blurred/minimized.
+    tetrisScreen && tetrisScreen.addEventListener("visibilitychange", function () {
+      if (document.hidden) pause();
+    });
+  }
+
+  // Start the game when its window becomes focused/open, matching other apps.
+  if (typeof openWindow === "function") {
+    var _ow = openWindow;
+    openWindow = function (element) {
+      _ow(element);
+      if (element && element.id === "tetris") {
+        // (Re)start the game whenever the window opens: closeWindow hides the
+        // window but does not stop the loop, so paused/player.matrix can be
+        // stale. Always kick off a fresh frame-driven game here (start()
+        // cancels any lingering RAF first).
+        if (loopId == null) { bind(); }
+        start();
+      }
+    };
+    openWindow._orig = _ow;
+  }
+
+  // Auto-bind so the first open works even if openWindow was already wrapped.
+  bind();
+
+  return { reset: reset, start: start, pause: pause, resume: resume, stop: stop };
+})();
 
 
 var calcDisplay = document.querySelector("#calcDisplay");
@@ -4602,6 +5022,9 @@ initPixelPaint();
   }
 })();
 
+// Init the macOS-style dock magnify once the dock node exists (it's static HTML).
+if (typeof initDockMagnify === "function") initDockMagnify();
+
 /* =========================================================
    WIDGETS APP IMPLEMENTATION
    ========================================================= */
@@ -5423,7 +5846,8 @@ initPixelPaint();
     { id: "compendium", name: "Compendium" },
     { id: "settings", name: "Settings" },
     { id: "themes", name: "Themes" },
-    { id: "gallery", name: "Gallery" }
+    { id: "gallery", name: "Gallery" },
+    { id: "tetris", name: "Tetris" }
   ];
   // Attach each app's icon (from its desktop icon) for the result thumbnail.
   APPS.forEach(function (a) {
@@ -5736,5 +6160,128 @@ initPixelPaint();
   window.addEventListener("blur", function () {
     if (switcher && switcher.style.display !== "none") commitSwitcher();
   });
+})();
+
+/* =========================================================
+   LAYOUT LAB (temporary redesign comparator)
+   Two-button app: "Classic" = current desktop-icons + open-apps dock;
+   "Dock" = redesigned centered dock holding ALL apps, no desktop icons.
+   The chosen mode is persisted and flips body classes so the whole
+   desktop re-skins live (and still behaves under Fill/Uniform/Fit).
+   ========================================================= */
+
+(function initLayoutLab() {
+  var LAYOUT_KEY = "isaacos_layout_mode";
+  var ALL_IDS = ["notes", "contacts", "browser", "calculator",
+                 "compendium", "gallery", "music", "themes", "settings", "paint", "widgets", "tetris"];
+
+  function isDockMode() {
+    return document.body.classList.contains("layout-dock");
+  }
+
+  function setMode(mode) {
+    var dock = true;
+    if (mode !== "dock") mode = "classic";
+    document.body.classList.toggle("layout-dock", mode === "dock");
+    document.body.classList.toggle("layout-classic", mode === "classic");
+    try { localStorage.setItem(LAYOUT_KEY, mode); } catch (e) {}
+    var dockEl = document.getElementById("dock");
+    if (dockEl) dockEl.classList.toggle("dock-redesign", mode === "dock");
+    // Make the layout mode authoritative over desktop-icon visibility:
+    // Classic always shows icons, Dock always hides them (the whole point of the comparison).
+    var da = document.getElementById("desktopApps");
+    if (da) da.style.display = mode === "dock" ? "none" : "flex";
+    try { localStorage.setItem("isaacos_desktop_icons", mode === "dock" ? "0" : "1"); } catch (e) {}
+    // Refresh button active state + label.
+    var cur = document.getElementById("layoutlabCurrent");
+    if (cur) cur.textContent = mode === "dock" ? "Dock" : "Classic";
+    ["classic", "dock"].forEach(function (m) {
+      var b = document.getElementById("layout" + m.charAt(0).toUpperCase() + m.slice(1));
+      if (b) b.classList.toggle("active", m === mode);
+    });
+    // Re-render the dock for the new mode. (No fitOsToScreen() here: layout
+    // toggling does not change stage geometry, and re-fitting mid-boot can
+    // perturb the scale used by drag/resize math in other tests.)
+    if (mode !== "dock") {
+      // Leaving Dock mode: the Dock renderer injected ALL apps into the dock
+      // (with .dock-label spans classic icons lack), and cached them in
+      // dockItems keyed by id. If we don't drop that cache, classic renderDock
+      // sees the ids as already-present and never rebuilds — leaving stale /
+      // duplicated icons behind. Reset so classic starts clean.
+      Object.keys(dockItems).forEach(function (k) { delete dockItems[k]; });
+      // dockItems is a fresh object reference; reassign is harmless because the
+      // closure above (renderDock) reads the outer `dockItems` by name each call.
+      if (dockEl) { dockEl.innerHTML = ""; }
+      dockEl.classList.remove("dock-empty");
+    }
+    if (typeof renderDock === "function") renderDock();
+  }
+
+  // Patch renderDock so Dock mode lists ALL apps (with running/active states)
+  // instead of only open ones.
+  var _renderDock = renderDock;
+  renderDock = function () {
+    var dock = document.getElementById("dock");
+    if (!dock) return;
+    var listIds = isDockMode() ? ALL_IDS.slice() : null;
+
+    if (!listIds) { _renderDock(); return; }
+
+    // Dock mode: keep ALL apps in the dock (created once, then only state
+    // classes toggle). Do NOT clear/rebuild here — rebuilding replays the
+    // entrance animation on every icon each time any app opens or closes.
+    listIds.forEach(function (id) {
+      var win = document.getElementById(id);
+      if (!win) return;
+      var state = openApps[id] || "closed";
+
+      var item = dockItems[id];
+      if (!item) {
+        var iconImg = document.querySelector("#" + id + "icon img");
+        var src = iconImg ? iconImg.src : "img/avatar-isaac.png";
+        var labelEl = document.querySelector("#" + id + "icon .appicon-label");
+        var label = labelEl ? labelEl.textContent : id;
+
+        item = document.createElement("div");
+        item.innerHTML = '<img src="' + src + '" alt="' + id + '"><span class="dock-label">' + label + "</span>";
+
+        item.addEventListener("click", function () {
+          var st = openApps[id] || "closed";
+          if (st === "open") { minWindow(win); }
+          else { openWindow(win); }
+        });
+
+        dockItems[id] = item;
+        dock.appendChild(item);
+      }
+
+      item.className = "dock-item"
+        + (state === "open" ? " active" : "")
+        + (state === "open" || state === "minimized" ? " running" : "")
+        + (state === "minimized" ? " minimized" : "");
+    });
+
+    dock.classList.toggle("dock-empty", false);
+  };
+
+  // Wire the topbar button + the two mode buttons.
+  // initializeWindow wires drag, the close/min/max buttons and the resize handle.
+  var lab = initializeWindow("layoutlab");
+  var btn = document.getElementById("layoutLabBtn");
+  if (btn && lab) {
+    btn.addEventListener("click", function () {
+      if (lab.style.display === "flex") { minWindow(lab); }
+      else { openWindow(lab); }
+    });
+  }
+  ["classic", "dock"].forEach(function (m) {
+    var b = document.getElementById("layout" + m.charAt(0).toUpperCase() + m.slice(1));
+    if (b) b.addEventListener("click", function () { setMode(m); });
+  });
+
+  // Apply persisted mode on boot.
+  var saved = "classic";
+  try { saved = localStorage.getItem(LAYOUT_KEY) || "classic"; } catch (e) {}
+  setMode(saved);
 })();
 

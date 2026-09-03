@@ -36,6 +36,7 @@
         </svg>
         <span class="topbar-bell-badge" id="notifBadge" style="display:none;"></span>
       </span>
+      <button class="topbar-launch" id="layoutLabBtn" title="Layout Lab" aria-label="Layout Lab"> <img src="img/Collectible_Blue_Map_icon.webp  " alt="layout" class="topbar-layout"></button>
       <span class="time" id="timeElement">...</span>
     </div>
   </div>
@@ -85,9 +86,13 @@
       <div class="appicon-img"><img src="img/Collectible_Death_Certificate_icon.webp" alt="widgets"></div>
       <p class="appicon-label">Widgets</p>
     </div>
+    <div class="appicon" id="tetrisicon">
+      <div class="appicon-img"><img src="img/Collectible_The_Gamekid_icon.webp" alt="tetris"></div>
+      <p class="appicon-label">Tetris</p>
+    </div>
   </div>
 
-  <div id="desktopWidgets"></div>  
+  <div id="desktopWidgets"></div>
 
   <div id="appLauncher" class="app-launcher" style="display:none;">
     <div class="app-launcher-box">
@@ -116,6 +121,28 @@
       <p>
         Eeugh. 
       </p>
+    </div>
+  </div>
+
+  <div class="window" id="layoutlab" style="display: none;">
+    <div class="windowheader" id="layoutlabheader">
+      <span class="window-title">Layout Lab</span>
+      <div class="minbutton" id="layoutlabmin" title="Minimize"></div>
+      <div class="closebutton" id="layoutlabclose"></div>
+    </div>
+    <div class="layoutlab-app">
+      <p class="layoutlab-desc">Compare the two layouts. Pick one and the whole desktop re-skins live.</p>
+      <div class="layoutlab-buttons">
+        <button class="layoutlab-btn" id="layoutClassic" data-layout="classic">
+          <span class="layoutlab-btn-title">Classic</span>
+          <span class="layoutlab-btn-sub">Desktop icons + open-apps dock</span>
+        </button>
+        <button class="layoutlab-btn" id="layoutDock" data-layout="dock">
+          <span class="layoutlab-btn-title">Dock</span>
+          <span class="layoutlab-btn-sub">All apps in one centered dock</span>
+        </button>
+      </div>
+      <p class="layoutlab-current">Current: <strong id="layoutlabCurrent">Classic</strong></p>
     </div>
   </div>
 
@@ -573,7 +600,28 @@
       <div class="widgets-hint">click a preview to pin it to the desktop ✦</div>
     </div>
   </div>
-</div>
+
+  <div class="window" id="tetris" style="display: none;">
+      <div class="windowheader" id="tetrisheader">
+        <span class="window-title">Tetris</span>
+        <div class="minbutton" id="tetrismin" title="Minimize"></div>
+        <div class="closebutton" id="tetrisclose"></div>
+      </div>
+      <div class="tetris-app">
+        <div class="tetris-main">
+          <div id="canvas-wrap"><canvas id="tetrisCanvas" width="200" height="400" tabindex="0"></canvas>
+            <div class="tetris-overlay" id="tetrisOverlay">
+              <span class="gameover-title" id="tetrisGameOverTitle">GAME OVER</span>
+              <button class="restart-btn" id="tetrisRestartBtn">Restart</button>
+            </div></div>
+          <div class="tetris-status">
+            <span id="tetrisScore">Score: 0</span>
+            <span id="tetrisLevel">Level: 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
 <script src="data/items.js"></script>
     <script src="data/bosses.js"></script>

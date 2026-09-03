@@ -1,0 +1,94 @@
+#!/usr/bin/env node
+/**
+ * Geometry probe for a mini-game canvas inside a fake-OS window.
+ *
+ * Usage:  node references/../../scripts/canvas-center-probe.mjs
+ *   (or copy into the project and run `node scripts/canvas-center-probe.mjs`)
+ *
+ * Measures the rendered bounding boxes of the canvas, its framed container
+ * (#canvas-wrap), and the Game-Over overlay (#tetrisOverlay), then reports the
+ * per-side margins so you can confirm the canvas is TRULY centered (left
+ * margin == right margin, top == bottom) — catching the sub-pixel/overflow
+ * asymmetry a `getComputedStyle` check hides.
+ *
+ * Edit APP_SELECTOR / WRAP_SELECTOR / CANVAS_SELECTOR / OVERLAY_SELECTOR to
+ * target a different mini-game window.
+ */
+import { chromium } from '@Playwright/test';
+
+const PORT   = process.env.PORT || '4178';
+const URL    = `http://localhost:${PORT}`;
+const APP_SEL    = '#tetrisicon';          // desktop icon that opens the window
+const WRAP_SEL   = '#canvas-wrap';
+const CANVAS_SEL = '#tetrisCanvas';
+const OVERLAY_SEL = '#tetrisOverlay';
+
+function relMargins(child, parent) {
+  if (!child || !parent) return null;
+  const c = child.getBoundingClientRect();
+  const p = parent.getBoundingClientRect();
+  return {
+    ML: Math.round(p.left - c.left),
+    MR: Math.round(c.right - p.right),
+    MT: Math.round(p.top - c.top),
+    MB: Math.round(c.bottom - p.bottom),
+  };
+}
+
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+
+// Only load the local static server; abort everything else so headless load never stalls.
+await p.route('**/*', route => {
+  const u = route.request().url();
+  if (u.startsWith('http://localhost') || u.startsWith('data:')) return route.continue();
+  return route.abort();
+});
+
+await p.goto(URL, { waitUntil: 'domcontentloaded' });
+// hide any boot/splash overlay that would block element clicks
+await p.evaluate(() => {
+  const bi = document.getElementById('bootIntro');
+  if (bi) { bi.style.display = 'none'; bi.classList.add('hidden'); }
+});
+await p.waitForSelector('#os', { state: 'visible' });
+await p.waitForTimeout(400);
+
+await p.locator(APP_SEL).click();
+await p.waitForTimeout(800);
+
+const info = await p.evaluate(() => {
+  const sel = (s) => document.querySelector(s);
+  const wrap    = sel('#canvas-wrap');
+  const canvas  = sel('#tetrisCanvas');
+  const overlay = sel('#tetrisOverlay');
+
+  const r = (e) => {
+    if (!e) return null;
+    const b = e.getBoundingClientRect();
+    return { w: Math.round(b.width), h: Math.round(b.height) };
+  };
+  const m = (child, parent) => {
+    if (!child || !parent) return null;
+    const c = child.getBoundingClientRect(), p2 = parent.getBoundingClientRect();
+    return { ML: p2.left - c.left, MR: c.right - p2.right, MT: p2.top - c.top, MB: c.bottom - p2.bottom };
+  };
+  return {
+    wrap:           r(wrap),
+    canvas:         r(canvas),
+    overlay:        r(overlay),
+    canvasMargins:  m(canvas, wrap),      // should be ~equal on all sides
+    overlayParent:  overlay && wrap ? (overlay.parentElement === wrap ? 'wrap' : 'other') : null,
+    overlayClasses: overlay ? [...overlay.classList] : null,
+  };
+});
+
+console.log('--- canvas-center-probe ---');
+console.log(JSON.stringify(info, null, 2));
+const cm = info.canvasMargins;
+if (cm) {
+  const symLR = Math.abs(cm.ML - cm.MR) <= 1;   // ±1px tolerance for sub-pixel rounding
+  const symTB = Math.abs(cm.MT - cm.MB) <= 1;
+  console.log(`center OK: LR symmetric=${symLR} (${cm.ML}/${cm.MR}), TB symmetric=${symTB} (${cm.MT}/${cm.MB})`);
+}
+await b.close();
