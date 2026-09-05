@@ -36,7 +36,11 @@
         </svg>
         <span class="topbar-bell-badge" id="notifBadge" style="display:none;"></span>
       </span>
-      <button class="topbar-launch" id="layoutLabBtn" title="Layout Lab" aria-label="Layout Lab"> <img src="img/Collectible_Blue_Map_icon.webp  " alt="layout" class="topbar-layout"></button>
+      <button class="topbar-search" id="spotlightBtn" title="Search (Ctrl+Space)" aria-label="Search">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span>Ctrl+Space</span>
+      </button>
+      <button class="topbar-launch" id="layoutLabBtn" title="Layout Lab" aria-label="Layout Lab"> <img src="img/Collectible_Blue_Map_icon.webp" alt="layout" class="topbar-layout"></button>
       <span class="time" id="timeElement">...</span>
     </div>
   </div>
@@ -131,7 +135,7 @@
       <div class="closebutton" id="layoutlabclose"></div>
     </div>
     <div class="layoutlab-app">
-      <p class="layoutlab-desc">Compare the two layouts. Pick one and the whole desktop re-skins live.</p>
+      <p class="layoutlab-desc">Choose the one u like more.</p>
       <div class="layoutlab-buttons">
         <button class="layoutlab-btn" id="layoutClassic" data-layout="classic">
           <span class="layoutlab-btn-title">Classic</span>

@@ -335,12 +335,13 @@ var dockIds = ["notes", "contacts", "browser", "calculator", "compendium", "gall
 function flipDock(firstRects) {
   var dock = document.querySelector("#dock");
   if (!dock) return;
+  var s = getOsScaleXY().x || 1;
   dockIds.forEach(function (id) {
     var item = dockItems[id];
     var first = firstRects[id];
     if (!item || !item.parentNode || !first) return;
     var last = item.getBoundingClientRect();
-    var dx = first.left - last.left;
+    var dx = (first.left - last.left) / s;
     if (!dx) return;
     // Animate on a SEPARATE channel (--dock-slide) so we never overwrite the
     // magnify scale (-dock-mag / -dock-lift). Overwriting transform caused the
@@ -376,9 +377,10 @@ function renderDock(){
     if (item.classList.contains("leaving")) return;
     var dr = dock.getBoundingClientRect();
     var ir = item.getBoundingClientRect();
+    var sc = getOsScaleXY().x || 1;
     item.style.position = "absolute";
-    item.style.left = (ir.left - dr.left) + "px";
-    item.style.top = (ir.top - dr.top) + "px";
+    item.style.left = ((ir.left - dr.left) / sc) + "px";
+    item.style.top = ((ir.top - dr.top) / sc) + "px";
     item.style.margin = "0";
     item.classList.add("leaving");
     item.addEventListener("animationend", function (e) {
@@ -507,9 +509,6 @@ function dragElement(element) {
     document.removeEventListener("pointermove", elementDrag);
     document.removeEventListener("pointerup", stopDragging);
     document.removeEventListener("pointercancel", stopDragging);
-    var movedX = Math.abs(initialX - lastClientX);
-    var movedY = Math.abs(initialY - lastClientY);
-    if (movedX > 4 || movedY > 4) snapToEdges(element);
   }
 }
 
@@ -526,43 +525,6 @@ function bringToFront(win) {
 }
 
 // Snap a dragged window to a screen edge: left/right half, or top = maximize.
-function snapToEdges(win) {
-  if (!osContainer) return;
-  var osc = osContainer.getBoundingClientRect();
-  var s = getOsScaleXY();
-  var logicalW = osc.width / s.x;
-  var logicalH = osc.height / s.y;
-  var w = win.offsetWidth, h = win.offsetHeight;
-  var left = win.offsetLeft, top = win.offsetTop;
-  var threshold = Math.max(20, logicalW * 0.05);
-
-  var snapped = false;
-  if (top <= threshold) {
-    // Top edge -> maximize (reuse toggleMaximize if present, else manual).
-    var tb = document.getElementById("top");
-    var tbH = tb ? tb.offsetHeight : 0;
-    win.style.left = "0px";
-    win.style.top = tbH + "px";
-    win.style.width = logicalW + "px";
-    win.style.height = (logicalH - tbH) + "px";
-    win.style.transform = "none";
-    snapped = true;
-  } else if (left <= threshold) {
-    win.style.left = "0px";
-    win.style.top = "0px";
-    win.style.width = (logicalW / 2) + "px";
-    win.style.height = logicalH + "px";
-    snapped = true;
-  } else if (left + w >= logicalW - threshold) {
-    win.style.left = (logicalW / 2) + "px";
-    win.style.top = "0px";
-    win.style.width = (logicalW / 2) + "px";
-    win.style.height = logicalH + "px";
-    snapped = true;
-  }
-  if (snapped) bringToFront(win);
-}
-
 // Focus a window (raise + mark focused) when it is clicked anywhere.
 document.addEventListener("pointerdown", function (e) {
   var win = e.target.closest ? e.target.closest(".window") : null;
@@ -643,7 +605,7 @@ function renderNotifCenter() {
       '<div class="notif-body"></div>';
     row.querySelector(".notif-time").textContent = notifTime(n.ts);
     row.querySelector(".notif-body").textContent = n.body;
-    if (n.actionLabel) {
+    if (n.actionLabel && typeof n.onAction === "function") {
       var b = document.createElement("button");
       b.className = "notif-action";
       b.textContent = n.actionLabel;
@@ -670,6 +632,8 @@ function renderNotifCenter() {
 }
 
 function dismissNotif(i) {
+  var removed = notifHistory[i];
+  if (removed && !removed.read) unreadCount = Math.max(0, unreadCount - 1);
   notifHistory.splice(i, 1);
   saveNotifHistory();
   renderNotifCenter();
@@ -688,6 +652,7 @@ function markAllRead() {
   notifHistory.forEach(function (n) { n.read = true; });
   unreadCount = 0;
   saveNotifHistory();
+  renderNotifCenter();
   updateNotifBadge();
 }
 
@@ -732,7 +697,10 @@ function pushNotification(opts) {
 
   // 2) Record in history + bump unread.
   notifHistory.unshift({ ts: Date.now(), body: body, actionLabel: opts.actionLabel || null, read: false, onAction: opts.onAction });
-  if (notifHistory.length > 50) notifHistory.length = 50;
+  if (notifHistory.length > 50) {
+    var removed = notifHistory.splice(50);
+    for (var r = 0; r < removed.length; r++) if (!removed[r].read) unreadCount = Math.max(0, unreadCount - 1);
+  }
   unreadCount++;
   saveNotifHistory();
   renderNotifCenter();
@@ -1059,7 +1027,7 @@ var TETRIS = (function () {
       ctx = canvas.getContext("2d");
       canvas.width = COLS * BLOCK;
       canvas.height = ROWS * BLOCK;
-      if (restartBtn) restartBtn.addEventListener("click", function() { reset(); });
+      if (restartBtn) restartBtn.addEventListener("click", function() { start(); });
       // Create the audio context up front (it starts suspended under the autoplay
       // policy). It only produces sound after a real user gesture resumes it, so
       // piece-drop bleeps play from the very first lock.
@@ -1122,7 +1090,7 @@ var TETRIS = (function () {
   function spawn() {
     var idx = Math.floor(Math.random() * pieces.length);
     player.color = resolveColor(COLORS[idx]);
-    player.matrix = pieces[idx];
+    player.matrix = pieces[idx].map(function(row){ return row.slice(); });
     player.pos = {x: Math.floor(COLS/2) - 1, y: 0};
     // O-piece is 2x2; center it
     if (idx === 1) player.pos.x = Math.floor(COLS/2);
@@ -1154,31 +1122,35 @@ var TETRIS = (function () {
   }
 
   function rotate(matrix, dir) {
-    for (var i = 0; i < matrix.length; i++) {
-      for (var j = i; j < matrix.length - i - 1; j++) {
-        var temp = matrix[i][j];
-        matrix[i][j] = matrix[matrix.length - 1 - j][i];
-        matrix[matrix.length - 1 - j][i] = matrix[matrix.length - 1 - i][matrix.length - 1 - j];
-        matrix[matrix.length - 1 - i][matrix.length - 1 - j] = matrix[j][matrix.length - 1 - i];
-        matrix[j][matrix.length - 1 - i] = temp;
+    var N = matrix.length;
+    var M = matrix[0].length;
+    var res = [];
+    if (dir > 0) {
+      for (var i = 0; i < M; i++) {
+        res[i] = [];
+        for (var j = 0; j < N; j++) res[i][j] = matrix[N - 1 - j][i];
+      }
+    } else {
+      for (var i = 0; i < M; i++) {
+        res[i] = [];
+        for (var j = 0; j < N; j++) res[i][j] = matrix[j][M - 1 - i];
       }
     }
-    if (dir < 0) matrix.reverse().forEach(r => r.reverse());
+    return res;
   }
 
   function playerRotate(dir) {
     var pos = player.pos.x;
-    var wallKick = 1;
-    rotate(player.matrix, dir);
-    while (!valid(player.matrix, player.pos)) {
-      player.pos.x += wallKick;
-      wallKick = -wallKick;
-      if (wallKick > 2) {
-        rotate(player.matrix, -dir); // undo
-        player.pos.x = pos;
-        return;
-      }
+    var original = player.matrix;
+    var rotated = rotate(original, dir);
+    var kicks = [0, 1, -1, 2, -2];
+    for (var k = 0; k < kicks.length; k++) {
+      player.matrix = rotated;
+      player.pos.x = pos + kicks[k];
+      if (valid(player.matrix, player.pos)) return;
     }
+    player.matrix = original;
+    player.pos.x = pos;
   }
 
   function playerDrop() {
@@ -1209,7 +1181,7 @@ var TETRIS = (function () {
 
   function sweep() {
     var lines = 0;
-    outer: for (var y = board.length - 1; y >= 0; y--) {
+    for (var y = board.length - 1; y >= 0; y--) {
       // A row clears when every cell is filled (not empty).
       if (board[y].every(Boolean)) {
         board.splice(y, 1);
@@ -1217,9 +1189,6 @@ var TETRIS = (function () {
         y++; // re-check this new row
         lines++;
         linesCleared++;
-      } else if (board[y].some(Boolean)) {
-        // stop at the first non-empty (but not full) row: nothing above can clear
-        continue outer;
       }
     }
     if (lines > 0) {
@@ -1321,13 +1290,16 @@ var TETRIS = (function () {
     draw();
   }
 
+  var isBound = false;
   function bind() {
-    init();
-    document.addEventListener("keydown", onKey);
-    // Pause when window blurred/minimized.
-    tetrisScreen && tetrisScreen.addEventListener("visibilitychange", function () {
-      if (document.hidden) pause();
-    });
+    if (!isBound) {
+      init();
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) pause();
+      });
+      isBound = true;
+    }
   }
 
   // Start the game when its window becomes focused/open, matching other apps.
@@ -1350,7 +1322,7 @@ var TETRIS = (function () {
   // Auto-bind so the first open works even if openWindow was already wrapped.
   bind();
 
-  return { reset: reset, start: start, pause: pause, resume: resume, stop: stop };
+  return { reset: reset, start: start, pause: pause, resume: resume, stop: stop, _getPos: function(){ return {x: player.pos.x, y: player.pos.y, paused: paused, loopId: loopId}; }, _getBoard: function(){ return board; }, _setBoard: function(b){ board=b; }, _sweep: sweep, _getScore: function(){ return score; } };
 })();
 
 
@@ -1420,8 +1392,10 @@ function calcInputDecimal() {
 }
 
 function calcCompute(a, b, op) {
+  if (String(a) === "ERR" || String(b) === "ERR") return "ERR";
   a = parseFloat(a);
   b = parseFloat(b);
+  if (isNaN(a) || isNaN(b)) return "ERR";
   switch (op) {
     case "+": return a + b;
     case "-": return a - b;
@@ -1434,7 +1408,11 @@ function calcCompute(a, b, op) {
 function calcChooseOperator(op) {
   if (calcState.reset) {
     if (calcState.resultShown) {
-      calcState.previous = parseFloat(calcState.current);
+      if (String(calcState.current) === "ERR") calcState.previous = "ERR";
+      else {
+        var pv = parseFloat(calcState.current);
+        calcState.previous = isNaN(pv) ? "ERR" : pv;
+      }
       calcState.current = "";
     }
     calcState.operator = op;
@@ -1444,13 +1422,14 @@ function calcChooseOperator(op) {
   }
 
   var value = parseFloat(calcState.current);
+  if (isNaN(value) && String(calcState.current) !== "ERR") value = "ERR";
   if (calcState.operator) {
     var result = calcCompute(calcState.previous, value, calcState.operator);
     calcState.expr = calcState.expr + " " + calcOpSymbol(calcState.operator) + " " + calcState.current + " = " + String(result);
     calcState.previous = result;
   } else {
     calcState.expr = calcState.expr + calcState.current;
-    calcState.previous = value;
+    calcState.previous = isNaN(value) ? "ERR" : value;
   }
   calcState.operator = op;
   calcState.current = "";
@@ -1460,7 +1439,21 @@ function calcChooseOperator(op) {
 
 function calcEquals() {
   if (calcState.operator === null) return;
+  if (calcState.current === "" && !calcState.resultShown) return;
+  var isErr = String(calcState.current) === "ERR" || String(calcState.previous) === "ERR";
+  if (isErr) {
+    var symE = calcOpSymbol(calcState.operator);
+    calcState.expr = calcState.expr + " " + symE + " " + calcState.current + " = ERR";
+    calcState.current = "ERR";
+    calcState.previous = "ERR";
+    calcState.operator = null;
+    calcState.reset = true;
+    calcState.resultShown = true;
+    calcUpdate();
+    return;
+  }
   var value = parseFloat(calcState.current);
+  if (isNaN(value)) return;
   var result = calcCompute(calcState.previous, value, calcState.operator);
   var sym = calcOpSymbol(calcState.operator);
   calcState.expr = calcState.expr + " " + sym + " " + calcState.current + " = " + String(result);
@@ -1483,6 +1476,7 @@ function calcClear() {
 }
 
 function calcBackspace() {
+  if (String(calcState.current) === "ERR") { calcClear(); return; }
   if (calcState.reset) return;
   calcState.current = calcState.current.length > 1
     ? calcState.current.slice(0, -1)
@@ -1492,14 +1486,19 @@ function calcBackspace() {
 
 function calcSign() {
   if (calcState.reset) return;
+  if (String(calcState.current) === "ERR") return;
   calcState.current = calcState.current.charAt(0) === "-"
     ? calcState.current.slice(1)
     : "-" + calcState.current;
+  if (calcState.current === "-0") calcState.current = "0";
   calcUpdate();
 }
 
 function calcPercent() {
-  calcState.current = String(parseFloat(calcState.current) / 100);
+  if (calcState.reset || String(calcState.current) === "ERR") return;
+  var v = parseFloat(calcState.current);
+  if (isNaN(v)) return;
+  calcState.current = String(v / 100);
   calcUpdate();
 }
 
@@ -1607,8 +1606,14 @@ browserUrl.addEventListener("keydown", function (e) {
 document.querySelector("#browserBack").addEventListener("click", function () {
   if (browserHistoryIndex > 0) {
     browserHistoryIndex--;
-    browserFrame.src = browserHistory[browserHistoryIndex];
-    browserUrl.value = browserHistory[browserHistoryIndex];
+    var url = browserHistory[browserHistoryIndex];
+    var srcUrl = url;
+    if (url.indexOf("pickledroided.github.io/webbandola") !== -1) {
+      srcUrl = url + (url.indexOf("?") !== -1 ? "&" : "?") + "_=" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    }
+    browserFrame.src = srcUrl;
+    browserCurrentUrl = url;
+    browserUrl.value = url;
     browserShowFrame();
   }
 });
@@ -1616,8 +1621,14 @@ document.querySelector("#browserBack").addEventListener("click", function () {
 document.querySelector("#browserForward").addEventListener("click", function () {
   if (browserHistoryIndex < browserHistory.length - 1) {
     browserHistoryIndex++;
-    browserFrame.src = browserHistory[browserHistoryIndex];
-    browserUrl.value = browserHistory[browserHistoryIndex];
+    var url = browserHistory[browserHistoryIndex];
+    var srcUrl = url;
+    if (url.indexOf("pickledroided.github.io/webbandola") !== -1) {
+      srcUrl = url + (url.indexOf("?") !== -1 ? "&" : "?") + "_=" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    }
+    browserFrame.src = srcUrl;
+    browserCurrentUrl = url;
+    browserUrl.value = url;
     browserShowFrame();
   }
 });
@@ -1625,7 +1636,14 @@ document.querySelector("#browserForward").addEventListener("click", function () 
 document.querySelector("#browserHome").addEventListener("click", browserShowHome);
 
 document.querySelector("#browserReload").addEventListener("click", function () {
-  if (browserFrame.src) {
+  if (browserCurrentUrl) {
+    var url = browserCurrentUrl;
+    var srcUrl = url;
+    if (url.indexOf("pickledroided.github.io/webbandola") !== -1) {
+      srcUrl = url + (url.indexOf("?") !== -1 ? "&" : "?") + "_=" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    }
+    try { browserFrame.contentWindow.location.reload(); } catch (e) { browserFrame.src = srcUrl; }
+  } else if (browserFrame.src) {
     browserFrame.src = browserFrame.src;
   }
 });
@@ -1668,7 +1686,8 @@ function loadNotes() {
   try {
     var saved = localStorage.getItem("isaacos_notes");
     if (saved) {
-      return JSON.parse(saved);
+      var parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
   return defaultContent;
@@ -1680,97 +1699,136 @@ var sidebar = document.querySelector("#sidebar");
 var noteContent = document.querySelector("#noteContent");
 var currentIndex = 0;
 
+function sanitizeTitle(str) {
+  var d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+function sanitizeContent(html) {
+  var tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  var badTags = tmp.querySelectorAll("script, style, iframe, object, embed, link");
+  for (var i = 0; i < badTags.length; i++) badTags[i].remove();
+  var all = tmp.querySelectorAll("*");
+  for (var j = 0; j < all.length; j++) {
+    var el = all[j];
+    var attrs = el.attributes;
+    for (var k = attrs.length - 1; k >= 0; k--) {
+      var name = attrs[k].name;
+      var val = attrs[k].value;
+      if (name.indexOf("on") === 0) el.removeAttribute(name);
+      else if ((name === "href" || name === "src") && /^\s*javascript:/i.test(val)) el.removeAttribute(name);
+    }
+  }
+  return tmp.innerHTML;
+}
+
 function setNotesContent(index) {
+  if (!content.length) {
+    noteContent.innerHTML = "";
+    currentIndex = 0;
+    return;
+  }
+  if (index < 0 || index >= content.length) index = 0;
   currentIndex = index;
   var note = content[index];
-  noteContent.innerHTML = note.content;
+  noteContent.innerHTML = sanitizeContent(note.content);
 }
 
 noteContent.addEventListener("input", function () {
-  content[currentIndex].content = noteContent.innerHTML;
+  if (!content[currentIndex]) return;
+  content[currentIndex].content = sanitizeContent(noteContent.innerHTML);
   content[currentIndex].date = new Date().toLocaleDateString("it-IT");
-  saveNotes();
-  showToastDebounced("note saved", 1200);
-
   var heading = noteContent.querySelector("h2");
   if (heading) {
+    var cleanTitle = heading.textContent.trim() || "Untitled";
+    content[currentIndex].title = cleanTitle;
     var item = sidebar.querySelectorAll(".sidebar-item")[currentIndex];
-    var title = item.querySelector(".item-title");
-    var date = item.querySelector(".item-date");
-    title.innerHTML = heading.textContent;
-    date.innerHTML = content[currentIndex].date;
-    content[currentIndex].title = heading.textContent;
+    if (item) {
+      var titleEl = item.querySelector(".item-title");
+      var dateEl = item.querySelector(".item-date");
+      if (titleEl) titleEl.textContent = cleanTitle;
+      if (dateEl) dateEl.textContent = content[currentIndex].date;
+    }
   }
+  saveNotes();
+  showToastDebounced("note saved", 1200);
 });
 
 function addToSideBar(index) {
   var note = content[index];
-
+  if (!note) return;
   var newDiv = document.createElement("div");
   newDiv.classList.add("sidebar-item");
-  newDiv.innerHTML = `
-    <div class="sidebar-item-head">
-      <p class="item-title">${note.title}</p>
-      <span class="item-trash" title="Delete note">🗑</span>
-    </div>
-    <p class="item-date">${note.date}</p>
-  `;
+  var head = document.createElement("div");
+  head.className = "sidebar-item-head";
+  var titleP = document.createElement("p");
+  titleP.className = "item-title";
+  titleP.textContent = note.title;
+  var trash = document.createElement("span");
+  trash.className = "item-trash";
+  trash.title = "Delete note";
+  trash.textContent = "🗑";
+  head.appendChild(titleP);
+  head.appendChild(trash);
+  var dateP = document.createElement("p");
+  dateP.className = "item-date";
+  dateP.textContent = note.date;
+  newDiv.appendChild(head);
+  newDiv.appendChild(dateP);
 
   newDiv.addEventListener("click", function () {
+    var curIdx = content.indexOf(note);
+    if (curIdx === -1) return;
     var items = sidebar.querySelectorAll(".sidebar-item");
-    items.forEach(function (item) {
-      item.classList.remove("active");
-    });
+    items.forEach(function (item) { item.classList.remove("active"); });
     newDiv.classList.add("active");
-    setNotesContent(index);
+    setNotesContent(curIdx);
   });
 
-  newDiv.querySelector(".item-trash").addEventListener("click", function (e) {
+  trash.addEventListener("click", function (e) {
     e.stopPropagation();
-    deleteNote(index);
+    var curIdx = content.indexOf(note);
+    if (curIdx !== -1) deleteNote(curIdx);
   });
 
   sidebar.appendChild(newDiv);
 }
 
 function deleteNote(index) {
+  if (index < 0 || index >= content.length) return;
   content.splice(index, 1);
   saveNotes();
-
   var items = sidebar.querySelectorAll(".sidebar-item");
-  items[index].remove();
-
+  if (items[index]) items[index].remove();
   if (content.length === 0) {
     noteContent.innerHTML = "";
     currentIndex = 0;
+    // ensure no active item remains
+    var remaining = sidebar.querySelectorAll(".sidebar-item");
+    remaining.forEach(function (it) { it.classList.remove("active"); });
     return;
   }
-
   var newIndex = Math.max(0, Math.min(index, content.length - 1));
-  items = sidebar.querySelectorAll(".sidebar-item");
-  items.forEach(function (item) {
-    item.classList.remove("active");
-  });
-  items[newIndex].classList.add("active");
+  var newItems = sidebar.querySelectorAll(".sidebar-item");
+  newItems.forEach(function (item) { item.classList.remove("active"); });
+  if (newItems[newIndex]) newItems[newIndex].classList.add("active");
   setNotesContent(newIndex);
 }
 
 document.querySelector("#newNoteBtn").addEventListener("click", function () {
-  var index = content.length;
-  content.push({
+  var newNote = {
     title: "New note",
     date: new Date().toLocaleDateString("it-IT"),
     content: "<h2>New note</h2><p></p>"
-  });
+  };
+  content.push(newNote);
   saveNotes();
-  addToSideBar(index);
-
+  addToSideBar(content.length - 1);
   var items = sidebar.querySelectorAll(".sidebar-item");
-  items.forEach(function (item) {
-    item.classList.remove("active");
-  });
-  items[items.length - 1].classList.add("active");
-  setNotesContent(index);
+  items.forEach(function (item) { item.classList.remove("active"); });
+  if (items.length) items[items.length - 1].classList.add("active");
+  setNotesContent(content.length - 1);
   noteContent.focus();
 });
 
@@ -1778,8 +1836,13 @@ for (var i = 0; i < content.length; i++) {
   addToSideBar(i);
 }
 
-setNotesContent(0);
-sidebar.querySelector(".sidebar-item").classList.add("active");
+if (content.length) {
+  setNotesContent(0);
+  var first = sidebar.querySelector(".sidebar-item");
+  if (first) first.classList.add("active");
+} else {
+  noteContent.innerHTML = "";
+}
 
 // --- Compendium app ---
 
@@ -2681,7 +2744,7 @@ function galleryRender() {
     return;
   }
   galleryGrid.innerHTML = galleryPhotos.map(function (p, i) {
-    return '<button class="gallery-tile" data-index="' + i + '" title="' + p.name + '">' +
+    return '<button class="gallery-tile" data-index="' + i + '" title="' + compEsc(p.name) + '">' +
       '<img class="gallery-tile-img" src="' + galleryPhotoSrc(p.file) + '" alt="' + compEsc(p.name) + '" loading="lazy">' +
       '</button>';
   }).join("");
@@ -3015,6 +3078,11 @@ function themeRenderChips() {
       if (!theme) return;
       applyThemeVars(theme.colors);
       currentColors = theme.colors;
+      if (theme.bg) {
+        currentBg = theme.bg;
+        applyThemeVars(currentBg);
+        localStorage.setItem(customBgKey, JSON.stringify(currentBg));
+      }
       localStorage.setItem(themesKey, id);
       localStorage.removeItem(themesCustomKey);
       sliderFromColors(theme.colors);
@@ -3285,6 +3353,11 @@ function themeInit() {
     if (theme) {
       currentColors = theme.colors;
       applyThemeVars(theme.colors);
+      if (theme.bg) {
+        currentBg = theme.bg;
+        applyThemeVars(currentBg);
+        try { localStorage.setItem(customBgKey, JSON.stringify(currentBg)); } catch (e) {}
+      }
       sliderFromColors(theme.colors);
     }
   }
@@ -4410,8 +4483,9 @@ function initPixelPaint() {
       for (var i = 0; i < neighbors.length; i++) {
         var nx = neighbors[i][0];
         var ny = neighbors[i][1];
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
         var nIdx = ny * width + nx;
-        if (nx >= 0 && nx < width && ny >= 0 && ny < height && !visited[nIdx] && matchesTarget(nx, ny)) {
+        if (!visited[nIdx] && matchesTarget(nx, ny)) {
           visited[nIdx] = 1;
           queue.push([nx, ny]);
         }
@@ -4707,9 +4781,11 @@ initPixelPaint();
   sfx.grunt.volume = 0.5;
 
   function playSfx(a) {
+    if (!running) return;
     try {
       a.currentTime = 0;
-      a.play().catch(function () {});
+      var p = a.play();
+      if (p && p.catch) p.catch(function () {});
     } catch (e) {}
   }
 
@@ -4717,10 +4793,11 @@ initPixelPaint();
     try {
       if (which) {
         which.pause();
+        try { which.currentTime = 0; } catch (e2) {}
       } else {
-        sfx.poof.pause();
-        sfx.trapdoor.pause();
-        sfx.grunt.pause();
+        sfx.poof.pause(); try { sfx.poof.currentTime = 0; } catch (e2) {}
+        sfx.trapdoor.pause(); try { sfx.trapdoor.currentTime = 0; } catch (e2) {}
+        sfx.grunt.pause(); try { sfx.grunt.currentTime = 0; } catch (e2) {}
       }
     } catch (e) {}
   }
@@ -5953,6 +6030,15 @@ if (typeof initDockMagnify === "function") initDockMagnify();
     e.preventDefault();
     toggle();
   });
+
+  // Topbar search button opens the same launcher.
+  var spotlightBtn = document.getElementById("spotlightBtn");
+  if (spotlightBtn) {
+    spotlightBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      show();
+    });
+  }
 })();
 
 /* =========================================================
@@ -5977,8 +6063,8 @@ if (typeof initDockMagnify === "function") initDockMagnify();
 
   function isDesktopTarget(t) {
     if (!t || !t.closest) return false;
-    // Only the desktop background (not windows, icons, widgets, dock, launcher, menu).
-    if (t.closest(".window, .appicon, .dock, .app-launcher, .context-menu, .widget-card, input, button, a, select, textarea"))
+    // Only the desktop background (not windows, icons, widgets, dock, topbar, launcher, menu).
+    if (t.closest(".window, .appicon, #dock, #top, .topbar, .app-launcher, .context-menu, .widget-card, input, button, a, select, textarea"))
       return false;
     return true;
   }
@@ -6042,7 +6128,7 @@ if (typeof initDockMagnify === "function") initDockMagnify();
       e.stopPropagation();
       closeMenu();
     }
-  });
+  }, true);
   window.addEventListener("blur", closeMenu);
   document.addEventListener("scroll", closeMenu, true);
 
